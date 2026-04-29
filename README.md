@@ -20,5 +20,3 @@ Planned gameplay support includes:
 - Tag-based protection support
 - Simple shelter reduction
 - Admin commands for status, reload, and band listing
-
-Implementation notes and the detailed addon specification live in [docs/SPEC.md](docs/SPEC.md).
