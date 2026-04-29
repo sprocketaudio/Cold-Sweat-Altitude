@@ -1,25 +1,24 @@
 
-Installation information
-=======
+# Cold Sweat: Altitude
 
-This template repository can be directly cloned to get you started with a new
-mod. Simply create a new repository cloned from this one, by following the
-instructions provided by [GitHub](https://docs.github.com/en/repositories/creating-and-managing-repositories/creating-a-repository-from-a-template).
+Cold Sweat: Altitude is a NeoForge 1.21.1 addon for Cold Sweat focused on configurable altitude-based temperature progression.
 
-Once you have your clone, simply open the repository in the IDE of your choice. The usual recommendation for an IDE is either IntelliJ IDEA or Eclipse.
+The goal is simple: let modpacks define temperature bands by Y level so caves, mountains, upper sky layers, and custom dimensions can all behave differently without pack-specific code. The addon is intended to sit on top of Cold Sweat's existing biome, dimension, block, and equipment systems rather than replace them.
 
-If at any point you are missing libraries in your IDE, or you've run into problems you can
-run `gradlew --refresh-dependencies` to refresh the local cache. `gradlew clean` to reset everything 
-{this does not affect your code} and then start the process again.
+This repository contains the addon implementation:
 
-Mapping Names:
-============
-By default, the MDK is configured to use the official mapping names from Mojang for methods and fields 
-in the Minecraft codebase. These names are covered by a specific license. All modders should be aware of this
-license. For the latest license text, refer to the mapping file itself, or the reference copy here:
-https://github.com/NeoForged/NeoForm/blob/main/Mojang.md
+- Package namespace: `net.sprocketgames.coldsweataltitude`
+- Mod ID: `coldsweat_altitude`
+- Required dependency: `cold_sweat` 2.4+
+- Target platform: NeoForge `21.1.181+` on Minecraft `1.21.1`
 
-Additional Resources: 
-==========
-Community Documentation: https://docs.neoforged.net/  
-NeoForged Discord: https://discord.neoforged.net/
+Planned gameplay support includes:
+
+- Configurable altitude bands with per-dimension filtering
+- Additive or multiplicative temperature modifiers
+- Optional warning messages layered on top of Cold Sweat
+- Tag-based protection support
+- Simple shelter reduction
+- Admin commands for status, reload, and band listing
+
+Implementation notes and the detailed addon specification live in [docs/SPEC.md](docs/SPEC.md).

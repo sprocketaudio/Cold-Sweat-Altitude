@@ -103,6 +103,16 @@ dependencies {
     // And its provides the option to then use net.minecraft as the group, and one of; client, server or joined as the module name, plus the game version as version.
     // For all intends and purposes: You can treat this dependency as if it is a normal library you would use.
     implementation "net.neoforged:neoforge:${neo_version}"
+    def coldSweatJarPath = providers.gradleProperty('cold_sweat_jar').orNull
+    if (coldSweatJarPath != null) {
+        def coldSweatJar = file(coldSweatJarPath)
+        if (coldSweatJar.exists()) {
+            compileOnly files(coldSweatJar)
+            localRuntime files(coldSweatJar)
+        } else {
+            logger.lifecycle("Cold Sweat jar not found at ${coldSweatJar}. Scaffold will build without direct API linkage.")
+        }
+    }
 
     // Example optional mod dependency with JEI
     // The JEI API is declared for compile time use, while the full JEI artifact is used at runtime
@@ -141,6 +151,7 @@ tasks.withType(ProcessResources).configureEach {
             mod_name               : mod_name,
             mod_license            : mod_license,
             mod_version            : mod_version,
+            cold_sweat_version     : cold_sweat_version,
     ]
     inputs.properties replaceProperties
 
