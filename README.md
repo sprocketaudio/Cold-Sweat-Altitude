@@ -7,12 +7,10 @@ The goal is simple: let modpacks define temperature bands by Y level so caves, m
 
 This repository contains the addon implementation:
 
-- Package namespace: `net.sprocketgames.coldsweataltitude`
-- Mod ID: `coldsweat_altitude`
 - Required dependency: `cold_sweat` 2.4+
 - Target platform: NeoForge `21.1.181+` on Minecraft `1.21.1`
 
-Planned gameplay support includes:
+Gameplay support includes:
 
 - Configurable altitude bands with per-dimension filtering
 - Additive or multiplicative temperature modifiers
