@@ -1,6 +1,7 @@
 package net.sprocketgames.coldsweataltitude.compat;
 
 import com.momosoftworks.coldsweat.api.event.core.init.GatherDefaultTempModifiersEvent;
+import com.momosoftworks.coldsweat.api.event.core.registry.BlockTempRegisterEvent;
 import com.momosoftworks.coldsweat.api.event.core.registry.TempModifierRegisterEvent;
 import com.momosoftworks.coldsweat.api.temperature.modifier.TempModifier;
 import com.momosoftworks.coldsweat.api.util.Temperature;
@@ -11,6 +12,7 @@ import net.minecraft.world.entity.player.Player;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.NeoForge;
 import net.sprocketgames.coldsweataltitude.ColdSweatAltitude;
+import net.sprocketgames.coldsweataltitude.compat.blocktemp.AeronauticsHeatSourceBlockTemp;
 import net.sprocketgames.coldsweataltitude.compat.modifier.SableBlockTempModifier;
 import net.sprocketgames.coldsweataltitude.compat.modifier.SableHearthModifier;
 
@@ -41,6 +43,17 @@ public final class SableHeatCompat
         }
 
         @SubscribeEvent
+        public void onBlockTempRegister(BlockTempRegisterEvent event)
+        {
+            registerBlockTemp(event,
+                AeronauticsHeatSourceBlockTemp.HeatSourceType.ADJUSTABLE_BURNER,
+                AeronauticsHeatSourceBlockTemp.getAdjustableBurnerBlock());
+            registerBlockTemp(event,
+                AeronauticsHeatSourceBlockTemp.HeatSourceType.STEAM_VENT,
+                AeronauticsHeatSourceBlockTemp.getSteamVentBlock());
+        }
+
+        @SubscribeEvent
         public void onGatherDefaultModifiers(GatherDefaultTempModifiersEvent event)
         {
             if (!(event.getEntity() instanceof Player) || event.getTrait() != Temperature.Trait.WORLD)
@@ -55,6 +68,16 @@ public final class SableHeatCompat
         private void add(GatherDefaultTempModifiersEvent event, TempModifier modifier)
         {
             event.addModifier(modifier.tickRate(20), Matcher.SAME_CLASS, Placement.LAST);
+        }
+
+        private void registerBlockTemp(BlockTempRegisterEvent event,
+                                       AeronauticsHeatSourceBlockTemp.HeatSourceType type,
+                                       net.minecraft.world.level.block.Block block)
+        {
+            if (block != null)
+            {
+                event.register(new AeronauticsHeatSourceBlockTemp(type, block));
+            }
         }
     }
 }

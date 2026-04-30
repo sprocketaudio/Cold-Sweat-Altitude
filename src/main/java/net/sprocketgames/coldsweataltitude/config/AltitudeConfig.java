@@ -17,8 +17,11 @@ import java.util.Optional;
 public final class AltitudeConfig
 {
     public static final String FILE_NAME = "coldsweat_altitude-server.toml";
+    private static final AeronauticsHeatSettings DEFAULT_AERONAUTICS_HEAT_SETTINGS =
+        new AeronauticsHeatSettings(0.14D, 7.0D, 0.12D, 8.0D);
 
     private static volatile List<AltitudeBand> bands = List.of();
+    private static volatile AeronauticsHeatSettings aeronauticsHeatSettings = DEFAULT_AERONAUTICS_HEAT_SETTINGS;
 
     private AltitudeConfig()
     {
@@ -42,6 +45,7 @@ public final class AltitudeConfig
             .build())
         {
             config.load();
+            aeronauticsHeatSettings = loadAeronauticsHeatSettings(config);
             Object rawBands = config.get("bands");
             if (rawBands instanceof List<?> entries)
             {
@@ -82,6 +86,11 @@ public final class AltitudeConfig
         return bands;
     }
 
+    public static AeronauticsHeatSettings getAeronauticsHeatSettings()
+    {
+        return aeronauticsHeatSettings;
+    }
+
     public static Path configPath()
     {
         return FMLPaths.CONFIGDIR.get().resolve(FILE_NAME);
@@ -106,6 +115,21 @@ public final class AltitudeConfig
         }
     }
 
+    private static AeronauticsHeatSettings loadAeronauticsHeatSettings(CommentedConfig config)
+    {
+        return new AeronauticsHeatSettings(
+            doubleValue(config, "aeronauticsBurnerHeat", DEFAULT_AERONAUTICS_HEAT_SETTINGS.burnerHeat()),
+            doubleValue(config, "aeronauticsBurnerRange", DEFAULT_AERONAUTICS_HEAT_SETTINGS.burnerRange()),
+            doubleValue(config, "aeronauticsSteamVentHeat", DEFAULT_AERONAUTICS_HEAT_SETTINGS.steamVentHeat()),
+            doubleValue(config, "aeronauticsSteamVentRange", DEFAULT_AERONAUTICS_HEAT_SETTINGS.steamVentRange()));
+    }
+
+    private static double doubleValue(CommentedConfig config, String key, double fallback)
+    {
+        Object value = config.get(key);
+        return value instanceof Number number ? number.doubleValue() : fallback;
+    }
+
     private static String defaultConfig()
     {
         return """
@@ -113,6 +137,12 @@ public final class AltitudeConfig
             # Temperature values are applied through Cold Sweat's WORLD temperature modifiers.
             # Band id is a user-defined stable name used by commands, logs, messages, and runtime state.
             # Leave maxY unset to make a band open-ended upward.
+            # Aeronautics heat-source tuning applies to both normal world blocks and Sable ship interiors.
+
+            aeronauticsBurnerHeat = 0.14
+            aeronauticsBurnerRange = 7.0
+            aeronauticsSteamVentHeat = 0.12
+            aeronauticsSteamVentRange = 8.0
 
             [[bands]]
             id = "deep_caves"
@@ -219,5 +249,13 @@ public final class AltitudeConfig
             shelterCheckRadius = 4
             shelterReduction = 0.75
             """;
+    }
+
+    public record AeronauticsHeatSettings(
+        double burnerHeat,
+        double burnerRange,
+        double steamVentHeat,
+        double steamVentRange)
+    {
     }
 }
