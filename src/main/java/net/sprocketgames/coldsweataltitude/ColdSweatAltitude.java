@@ -7,6 +7,7 @@ import net.neoforged.neoforge.common.NeoForge;
 import net.sprocketgames.coldsweataltitude.command.AltitudeCommands;
 import net.sprocketgames.coldsweataltitude.compat.ColdSweatCompat;
 import net.sprocketgames.coldsweataltitude.config.AltitudeConfig;
+import net.sprocketgames.coldsweataltitude.network.AltitudeNetwork;
 import net.sprocketgames.coldsweataltitude.temperature.AltitudeTemperatureManager;
 import org.slf4j.Logger;
 
@@ -20,6 +21,7 @@ public final class ColdSweatAltitude
     {
         AltitudeConfig.bootstrap();
         ColdSweatCompat.logDependencyStatus();
+        modEventBus.addListener(AltitudeNetwork::registerPayloads);
         NeoForge.EVENT_BUS.addListener(AltitudeCommands::register);
         NeoForge.EVENT_BUS.addListener(AltitudeTemperatureManager.getInstance()::onPlayerTick);
         NeoForge.EVENT_BUS.addListener(AltitudeTemperatureManager.getInstance()::onPlayerLoggedOut);

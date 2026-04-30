@@ -12,9 +12,10 @@ public final class PlayerAltitudeState
     private long lastMessageTick = Long.MIN_VALUE;
     private double protectionMultiplier = 1.0D;
     private double shelterMultiplier = 1.0D;
+    private double shelterEnclosure;
     private double finalModifier;
 
-    public void refresh(AltitudeBand band, int elapsedTicks, double protectionMultiplier, double shelterMultiplier)
+    public void refresh(AltitudeBand band, int elapsedTicks, double protectionMultiplier, double shelterMultiplier, double shelterEnclosure)
     {
         String nextBand = band == null ? null : band.id();
         bandChanged = !Objects.equals(activeBand, nextBand);
@@ -23,6 +24,7 @@ public final class PlayerAltitudeState
 
         this.protectionMultiplier = protectionMultiplier;
         this.shelterMultiplier = shelterMultiplier;
+        this.shelterEnclosure = shelterEnclosure;
         this.finalModifier = band == null ? 0.0D : band.effectiveModifier(protectionMultiplier, shelterMultiplier);
 
         if (activeBand == null)
@@ -64,6 +66,11 @@ public final class PlayerAltitudeState
     public double shelterMultiplier()
     {
         return shelterMultiplier;
+    }
+
+    public double shelterEnclosure()
+    {
+        return shelterEnclosure;
     }
 
     public double finalModifier()

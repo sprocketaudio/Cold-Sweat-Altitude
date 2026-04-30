@@ -2,6 +2,7 @@ package net.sprocketgames.coldsweataltitude.shelter;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.level.block.DoorBlock;
 import net.minecraft.world.level.block.TrapDoorBlock;
@@ -26,16 +27,70 @@ public final class ShelterManager
             return 1.0D;
         }
 
-        return isEnclosed(player, band.shelterCheckRadius())
-            ? Math.max(0.0D, 1.0D - band.shelterReduction())
-            : 1.0D;
+        double enclosure = shelterEnclosure(player, band);
+        return shelterMultiplier(band, enclosure);
     }
 
-    private boolean isEnclosed(ServerPlayer player, int shelterCheckRadius)
+    public double shelterMultiplier(AltitudeBand band, double enclosure)
+    {
+        double shelterScale = Math.min(1.0D, enclosure / ENCLOSURE_THRESHOLD);
+        double effectiveReduction = band.shelterReduction() * shelterScale;
+        return Math.max(0.0D, 1.0D - effectiveReduction);
+    }
+
+    public double shelterEnclosure(ServerPlayer player, AltitudeBand band)
+    {
+        if (!band.enableShelterCheck())
+        {
+            return 0.0D;
+        }
+        return enclosure(player, band.shelterCheckRadius());
+    }
+
+    public double worldShelterEnclosure(ServerPlayer player, AltitudeBand band)
+    {
+        if (!band.enableShelterCheck())
+        {
+            return 0.0D;
+        }
+        return enclosureInWorld(player, Math.max(1, band.shelterCheckRadius()));
+    }
+
+    public double sableShelterEnclosure(ServerPlayer player, AltitudeBand band)
+    {
+        if (!band.enableShelterCheck())
+        {
+            return 0.0D;
+        }
+        return SableContraptionShelter.INSTANCE.enclosure(player, Math.max(1, band.shelterCheckRadius()));
+    }
+
+    public String sableDiagnostic(ServerPlayer player, AltitudeBand band)
+    {
+        if (!band.enableShelterCheck())
+        {
+            return "disabled";
+        }
+        return SableContraptionShelter.INSTANCE.diagnostic(player, Math.max(1, band.shelterCheckRadius()));
+    }
+
+    private double enclosure(ServerPlayer player, int shelterCheckRadius)
     {
         int radius = Math.max(1, shelterCheckRadius);
+        return Math.max(
+            enclosureInWorld(player, radius),
+            SableContraptionShelter.INSTANCE.enclosure(player, radius));
+    }
+
+    private double enclosureInWorld(ServerPlayer player, int radius)
+    {
         Level level = player.level();
         BlockPos origin = player.blockPosition().above();
+        return enclosure(level, origin, radius);
+    }
+
+    static double enclosure(BlockGetter level, BlockPos origin, int radius)
+    {
         int closedDirections = 0;
 
         for (int[] direction : CHECK_DIRECTIONS)
@@ -46,10 +101,10 @@ public final class ShelterManager
             }
         }
 
-        return closedDirections / (double) CHECK_DIRECTIONS.length >= ENCLOSURE_THRESHOLD;
+        return closedDirections / (double) CHECK_DIRECTIONS.length;
     }
 
-    private boolean hasClosure(Level level, BlockPos origin, int radius, int dx, int dy, int dz)
+    private static boolean hasClosure(BlockGetter level, BlockPos origin, int radius, int dx, int dy, int dz)
     {
         for (int step = 1; step <= radius; step++)
         {
@@ -62,7 +117,7 @@ public final class ShelterManager
         return false;
     }
 
-    private boolean isClosureBlock(Level level, BlockPos pos)
+    private static boolean isClosureBlock(BlockGetter level, BlockPos pos)
     {
         BlockState state = level.getBlockState(pos);
         if (state.getBlock() instanceof DoorBlock)

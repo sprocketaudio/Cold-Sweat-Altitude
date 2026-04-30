@@ -9,6 +9,7 @@ import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import net.sprocketgames.coldsweataltitude.config.AltitudeConfig;
 import net.sprocketgames.coldsweataltitude.player.PlayerAltitudeState;
+import net.sprocketgames.coldsweataltitude.shelter.ShelterManager;
 import net.sprocketgames.coldsweataltitude.temperature.AltitudeBand;
 import net.sprocketgames.coldsweataltitude.temperature.AltitudeTemperatureManager;
 
@@ -41,6 +42,11 @@ public final class AltitudeCommands
 
         String bandId = activeBand.map(AltitudeBand::id).orElse("none");
         double modifier = activeBand.map(band -> band.effectiveModifier(state.protectionMultiplier(), state.shelterMultiplier())).orElse(0.0D);
+        String shelterDetails = activeBand
+            .map(band -> ", WorldShelter=" + Math.round(ShelterManager.INSTANCE.worldShelterEnclosure(player, band) * 100.0D) + "%"
+                + ", SableShelter=" + Math.round(ShelterManager.INSTANCE.sableShelterEnclosure(player, band) * 100.0D) + "%"
+                + ", Sable=" + ShelterManager.INSTANCE.sableDiagnostic(player, band))
+            .orElse("");
 
         source.sendSuccess(() -> Component.literal(
             "Dimension=" + player.level().dimension().location()
@@ -49,6 +55,8 @@ public final class AltitudeCommands
                 + ", TempModifier=" + modifier
                 + ", ProtectionReduction=" + (1.0D - state.protectionMultiplier())
                 + ", ShelterReduction=" + (1.0D - state.shelterMultiplier())
+                + ", Shelter=" + Math.round(state.shelterEnclosure() * 100.0D) + "%"
+                + shelterDetails
                 + ", TicksInBand=" + state.ticksInBand()),
             false);
         return Command.SINGLE_SUCCESS;

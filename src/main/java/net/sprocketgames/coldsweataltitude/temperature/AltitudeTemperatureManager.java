@@ -10,6 +10,7 @@ import net.neoforged.neoforge.event.entity.player.PlayerEvent;
 import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.sprocketgames.coldsweataltitude.compat.ColdSweatCompat;
 import net.sprocketgames.coldsweataltitude.config.AltitudeConfig;
+import net.sprocketgames.coldsweataltitude.network.AltitudeNetwork;
 import net.sprocketgames.coldsweataltitude.player.PlayerAltitudeState;
 import net.sprocketgames.coldsweataltitude.protection.AltitudeProtectionManager;
 import net.sprocketgames.coldsweataltitude.shelter.ShelterManager;
@@ -54,12 +55,15 @@ public final class AltitudeTemperatureManager
         double protectionMultiplier = band == null
             ? 1.0D
             : AltitudeProtectionManager.INSTANCE.protectionMultiplier(player, band);
+        double shelterEnclosure = band == null
+            ? 0.0D
+            : ShelterManager.INSTANCE.shelterEnclosure(player, band);
         double shelterMultiplier = band == null
             ? 1.0D
-            : ShelterManager.INSTANCE.shelterMultiplier(player, band);
+            : ShelterManager.INSTANCE.shelterMultiplier(band, shelterEnclosure);
 
         PlayerAltitudeState state = playerStates.computeIfAbsent(player.getUUID(), ignored -> new PlayerAltitudeState());
-        state.refresh(band, UPDATE_INTERVAL_TICKS, protectionMultiplier, shelterMultiplier);
+        state.refresh(band, UPDATE_INTERVAL_TICKS, protectionMultiplier, shelterMultiplier, shelterEnclosure);
         return state;
     }
 
@@ -92,6 +96,7 @@ public final class AltitudeTemperatureManager
 
         AltitudeBand band = activeBand.get();
         ColdSweatCompat.applyAltitudeModifier(serverPlayer, band.id(), state.finalModifier(), band.modifierMode());
+        AltitudeNetwork.sendShelterStatus(serverPlayer, state.shelterEnclosure());
         sendWarnings(serverPlayer, band, state);
     }
 
@@ -124,6 +129,7 @@ public final class AltitudeTemperatureManager
     {
         playerStates.remove(player.getUUID());
         ColdSweatCompat.removeAltitudeModifier(player);
+        AltitudeNetwork.sendShelterStatus(player, 0.0D);
     }
 
     private void sendWarnings(ServerPlayer player, AltitudeBand band, PlayerAltitudeState state)
