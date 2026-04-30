@@ -5,7 +5,7 @@ Cold Sweat: Altitude is a NeoForge 1.21.1 addon for Cold Sweat focused on config
 
 The goal is simple: let modpacks define temperature bands by Y level so caves, mountains, upper sky layers, and custom dimensions can all behave differently without pack-specific code. The addon is intended to sit on top of Cold Sweat's existing biome, dimension, block, and equipment systems rather than replace them.
 
-As of `0.2.0`, the addon also supports scaled shelter detection and reduced exposure inside enclosed Create: Aeronautics ships running on Sable contraptions.
+As of `0.3.0`, the addon also supports scaled shelter detection inside enclosed Create: Aeronautics ships running on Sable contraptions, along with Cold Sweat heat-source support inside those moving ship interiors.
 
 This repository contains the addon implementation:
 
@@ -21,4 +21,5 @@ Gameplay support includes:
 - Scaled shelter reduction
 - Shelter HUD feedback when partial or full shelter is detected
 - Shelter detection support for Create: Aeronautics ships using Sable contraptions
+- Cold Sweat block-temperature and hearth-style heat-source support inside Create: Aeronautics ships using Sable contraptions
 - Admin commands for status, reload, and band listing
