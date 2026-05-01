@@ -80,7 +80,7 @@ public final class AltitudeTemperatureManager
             return;
         }
 
-        if (serverPlayer.isCreative() || serverPlayer.isSpectator() || !serverPlayer.isAlive())
+        if (serverPlayer.isSpectator() || !serverPlayer.isAlive())
         {
             clear(serverPlayer);
             return;
@@ -97,7 +97,10 @@ public final class AltitudeTemperatureManager
         AltitudeBand band = activeBand.get();
         ColdSweatCompat.applyAltitudeModifier(serverPlayer, band.id(), state.finalModifier(), band.modifierMode());
         AltitudeNetwork.sendShelterStatus(serverPlayer, state.shelterEnclosure());
-        sendWarnings(serverPlayer, band, state);
+        if (!serverPlayer.isCreative())
+        {
+            sendWarnings(serverPlayer, band, state);
+        }
     }
 
     public void onPlayerLoggedOut(PlayerEvent.PlayerLoggedOutEvent event)

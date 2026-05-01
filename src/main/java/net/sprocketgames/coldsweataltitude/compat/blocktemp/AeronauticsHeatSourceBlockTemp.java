@@ -38,6 +38,12 @@ public final class AeronauticsHeatSourceBlockTemp extends BlockTemp
         return BuiltInRegistries.BLOCK.getOptional(STEAM_VENT_ID).orElse(null);
     }
 
+    public static int scanRange()
+    {
+        AltitudeConfig.AeronauticsHeatSettings settings = AltitudeConfig.getAeronauticsHeatSettings();
+        return Math.max(1, (int) Math.ceil(Math.max(settings.burnerRange(), settings.steamVentRange())));
+    }
+
     @Override
     public double getTemperature(Level level, LivingEntity entity, BlockState state, BlockPos pos, double distance)
     {

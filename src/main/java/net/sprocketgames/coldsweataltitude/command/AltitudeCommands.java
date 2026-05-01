@@ -7,7 +7,10 @@ import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
+import com.momosoftworks.coldsweat.api.util.Temperature;
+import net.sprocketgames.coldsweataltitude.compat.HeatDiagnostics;
 import net.sprocketgames.coldsweataltitude.config.AltitudeConfig;
+import net.sprocketgames.coldsweataltitude.config.AltitudeBandConfig;
 import net.sprocketgames.coldsweataltitude.player.PlayerAltitudeState;
 import net.sprocketgames.coldsweataltitude.shelter.ShelterManager;
 import net.sprocketgames.coldsweataltitude.temperature.AltitudeBand;
@@ -39,9 +42,16 @@ public final class AltitudeCommands
         AltitudeTemperatureManager manager = AltitudeTemperatureManager.getInstance();
         PlayerAltitudeState state = manager.refreshState(player);
         Optional<AltitudeBand> activeBand = manager.findMatchingBand(player);
+        HeatDiagnostics.Report heat = HeatDiagnostics.collect(player);
 
         String bandId = activeBand.map(AltitudeBand::id).orElse("none");
+        double rawModifier = activeBand.map(AltitudeBand::temperatureModifier).orElse(0.0D);
         double modifier = activeBand.map(band -> band.effectiveModifier(state.protectionMultiplier(), state.shelterMultiplier())).orElse(0.0D);
+        String numericNet = activeBand
+            .map(band -> band.modifierMode() == AltitudeBandConfig.ModifierMode.ADD
+                ? formatDouble(modifier + heat.total())
+                : "n/a-multiply")
+            .orElse(formatDouble(heat.total()));
         String shelterDetails = activeBand
             .map(band -> ", WorldShelter=" + Math.round(ShelterManager.INSTANCE.worldShelterEnclosure(player, band) * 100.0D) + "%"
                 + ", SableShelter=" + Math.round(ShelterManager.INSTANCE.sableShelterEnclosure(player, band) * 100.0D) + "%"
@@ -52,12 +62,23 @@ public final class AltitudeCommands
             "Dimension=" + player.level().dimension().location()
                 + ", Y=" + player.getBlockY()
                 + ", Band=" + bandId
-                + ", TempModifier=" + modifier
+                + ", AltitudeRaw=" + formatDouble(rawModifier)
+                + ", AltitudeApplied=" + formatDouble(modifier)
                 + ", ProtectionReduction=" + (1.0D - state.protectionMultiplier())
                 + ", ShelterReduction=" + (1.0D - state.shelterMultiplier())
                 + ", Shelter=" + Math.round(state.shelterEnclosure() * 100.0D) + "%"
                 + shelterDetails
                 + ", TicksInBand=" + state.ticksInBand()),
+            false);
+        source.sendSuccess(() -> Component.literal(
+            "HeatScanRange=" + heat.scanRange()
+                + ", HeatTotal=" + formatDouble(heat.total())
+                + ", OurNet=" + numericNet
+                + ", CSWorld=" + formatDouble(Temperature.get(player, Temperature.Trait.WORLD))
+                + ", CSBody=" + formatDouble(Temperature.get(player, Temperature.Trait.BODY))
+                + ", CSCore=" + formatDouble(Temperature.get(player, Temperature.Trait.CORE))
+                + ", HeatSources=" + formatHeatSources(heat)
+                + ", Hearths=" + formatHearths(heat)),
             false);
         return Command.SINGLE_SUCCESS;
     }
@@ -88,5 +109,50 @@ public final class AltitudeCommands
                 false);
         }
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static String formatHeatSources(HeatDiagnostics.Report heat)
+    {
+        if (heat.entries().isEmpty())
+        {
+            return "none(scan=" + heat.scanRange() + ")";
+        }
+
+        return heat.entries().stream()
+            .limit(5)
+            .map(entry -> entry.context()
+                + ":" + entry.blockId()
+                + "@" + entry.pos().toShortString()
+                + " d=" + formatDouble(entry.distance())
+                + " heat=" + formatDouble(entry.value()))
+            .toList()
+            .toString();
+    }
+
+    private static String formatHearths(HeatDiagnostics.Report heat)
+    {
+        if (heat.hearths().isEmpty())
+        {
+            return "none";
+        }
+
+        return heat.hearths().stream()
+            .limit(3)
+            .map(hearth -> hearth.context()
+                + "@" + hearth.pos().toShortString()
+                + " d=" + formatDouble(hearth.distance())
+                + " heatingOn=" + hearth.heatingOn()
+                + " hotFuel=" + hearth.hotFuel()
+                + " usingHotFuel=" + hearth.usingHotFuel()
+                + " heatingLevel=" + hearth.heatingLevel()
+                + " maxRange=" + hearth.maxRange()
+                + " affecting=" + hearth.affectingPlayer())
+            .toList()
+            .toString();
+    }
+
+    private static String formatDouble(double value)
+    {
+        return String.format(java.util.Locale.ROOT, "%.3f", value);
     }
 }

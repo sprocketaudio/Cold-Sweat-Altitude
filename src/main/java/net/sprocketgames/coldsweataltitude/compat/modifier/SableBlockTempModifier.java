@@ -12,14 +12,13 @@ import net.minecraft.world.level.block.state.BlockState;
 import net.minecraft.world.phys.Vec3;
 import net.sprocketgames.coldsweataltitude.compat.SableSublevelContext;
 import net.sprocketgames.coldsweataltitude.compat.SableSublevelResolver;
+import net.sprocketgames.coldsweataltitude.compat.blocktemp.AeronauticsHeatSourceBlockTemp;
 
 import java.util.Collection;
 import java.util.function.Function;
 
 public final class SableBlockTempModifier extends TempModifier
 {
-    private static final int SCAN_RANGE = 7;
-
     @Override
     protected Function<Double, Double> calculate(LivingEntity entity, Temperature.Trait trait)
     {
@@ -37,10 +36,11 @@ public final class SableBlockTempModifier extends TempModifier
         Level level = context.level();
         Vec3 localPosition = context.localPosition();
         BlockPos center = context.localBlockPos();
+        int scanRange = AeronauticsHeatSourceBlockTemp.scanRange();
         double total = 0.0D;
 
-        for (BlockPos pos : BlockPos.betweenClosed(center.offset(-SCAN_RANGE, -SCAN_RANGE, -SCAN_RANGE),
-            center.offset(SCAN_RANGE, SCAN_RANGE, SCAN_RANGE)))
+        for (BlockPos pos : BlockPos.betweenClosed(center.offset(-scanRange, -scanRange, -scanRange),
+            center.offset(scanRange, scanRange, scanRange)))
         {
             BlockState state = level.getBlockState(pos);
             Collection<BlockTemp> blockTemps = BlockTempRegistry.getBlockTempsFor(state);

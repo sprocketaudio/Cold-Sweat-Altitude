@@ -9,12 +9,24 @@ import net.minecraft.world.level.block.TrapDoorBlock;
 import net.minecraft.world.level.block.state.BlockState;
 import net.sprocketgames.coldsweataltitude.temperature.AltitudeBand;
 
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.Set;
+
 public final class ShelterManager
 {
     public static final ShelterManager INSTANCE = new ShelterManager();
 
     private static final double ENCLOSURE_THRESHOLD = 0.90D;
-    private static final int[][] CHECK_DIRECTIONS = buildDirections();
+    private static final double[][] CHECK_DIRECTIONS = buildDirections();
+    private static final int[][] FLOOD_DIRECTIONS = {
+        { 1, 0, 0 },
+        { -1, 0, 0 },
+        { 0, 1, 0 },
+        { 0, -1, 0 },
+        { 0, 0, 1 },
+        { 0, 0, -1 }
+    };
 
     private ShelterManager()
     {
@@ -91,9 +103,18 @@ public final class ShelterManager
 
     static double enclosure(BlockGetter level, BlockPos origin, int radius)
     {
+        if (isEnclosedVolume(level, origin, radius))
+        {
+            return 1.0D;
+        }
+        return directionalEnclosure(level, origin, radius);
+    }
+
+    private static double directionalEnclosure(BlockGetter level, BlockPos origin, int radius)
+    {
         int closedDirections = 0;
 
-        for (int[] direction : CHECK_DIRECTIONS)
+        for (double[] direction : CHECK_DIRECTIONS)
         {
             if (hasClosure(level, origin, radius, direction[0], direction[1], direction[2]))
             {
@@ -104,11 +125,58 @@ public final class ShelterManager
         return closedDirections / (double) CHECK_DIRECTIONS.length;
     }
 
-    private static boolean hasClosure(BlockGetter level, BlockPos origin, int radius, int dx, int dy, int dz)
+    private static boolean isEnclosedVolume(BlockGetter level, BlockPos origin, int radius)
     {
-        for (int step = 1; step <= radius; step++)
+        if (isClosureBlock(level, origin))
         {
-            BlockPos pos = origin.offset(dx * step, dy * step, dz * step);
+            return false;
+        }
+
+        ArrayDeque<BlockPos> open = new ArrayDeque<>();
+        Set<BlockPos> visited = new HashSet<>();
+        open.add(origin);
+        visited.add(origin);
+
+        while (!open.isEmpty())
+        {
+            BlockPos current = open.removeFirst();
+            if (isAtScanLimit(origin, current, radius))
+            {
+                return false;
+            }
+
+            for (int[] direction : FLOOD_DIRECTIONS)
+            {
+                BlockPos next = current.offset(direction[0], direction[1], direction[2]);
+                if (visited.contains(next) || isClosureBlock(level, next))
+                {
+                    continue;
+                }
+
+                visited.add(next);
+                open.add(next);
+            }
+        }
+
+        return true;
+    }
+
+    private static boolean isAtScanLimit(BlockPos origin, BlockPos current, int radius)
+    {
+        return Math.abs(current.getX() - origin.getX()) >= radius
+            || Math.abs(current.getY() - origin.getY()) >= radius
+            || Math.abs(current.getZ() - origin.getZ()) >= radius;
+    }
+
+    private static boolean hasClosure(BlockGetter level, BlockPos origin, int radius, double dx, double dy, double dz)
+    {
+        double originX = origin.getX() + 0.5D;
+        double originY = origin.getY() + 0.5D;
+        double originZ = origin.getZ() + 0.5D;
+
+        for (double step = 0.75D; step <= radius; step += 0.5D)
+        {
+            BlockPos pos = BlockPos.containing(originX + dx * step, originY + dy * step, originZ + dz * step);
             if (isClosureBlock(level, pos))
             {
                 return true;
@@ -131,24 +199,30 @@ public final class ShelterManager
         return !state.getCollisionShape(level, pos).isEmpty();
     }
 
-    private static int[][] buildDirections()
+    private static double[][] buildDirections()
     {
-        int[][] directions = new int[26][3];
-        int index = 0;
-        for (int dx = -1; dx <= 1; dx++)
+        int resolution = 4;
+        java.util.List<double[]> directions = new java.util.ArrayList<>();
+        for (int dx = -resolution; dx <= resolution; dx++)
         {
-            for (int dy = -1; dy <= 1; dy++)
+            for (int dy = -resolution; dy <= resolution; dy++)
             {
-                for (int dz = -1; dz <= 1; dz++)
+                for (int dz = -resolution; dz <= resolution; dz++)
                 {
                     if (dx == 0 && dy == 0 && dz == 0)
                     {
                         continue;
                     }
-                    directions[index++] = new int[] { dx, dy, dz };
+                    if (Math.max(Math.max(Math.abs(dx), Math.abs(dy)), Math.abs(dz)) != resolution)
+                    {
+                        continue;
+                    }
+
+                    double length = Math.sqrt(dx * dx + dy * dy + dz * dz);
+                    directions.add(new double[] { dx / length, dy / length, dz / length });
                 }
             }
         }
-        return directions;
+        return directions.toArray(double[][]::new);
     }
 }

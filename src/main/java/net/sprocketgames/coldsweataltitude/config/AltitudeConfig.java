@@ -17,6 +17,9 @@ import java.util.Optional;
 public final class AltitudeConfig
 {
     public static final String FILE_NAME = "coldsweat_altitude-server.toml";
+    public static final int MAX_SHELTER_CHECK_RADIUS = 16;
+    public static final double MAX_AERONAUTICS_HEAT_RANGE = 16.0D;
+
     private static final AeronauticsHeatSettings DEFAULT_AERONAUTICS_HEAT_SETTINGS =
         new AeronauticsHeatSettings(0.14D, 7.0D, 0.12D, 8.0D);
 
@@ -45,6 +48,7 @@ public final class AltitudeConfig
             .build())
         {
             config.load();
+            boolean configChanged = clampTopLevelConfigValues(config);
             aeronauticsHeatSettings = loadAeronauticsHeatSettings(config);
             Object rawBands = config.get("bands");
             if (rawBands instanceof List<?> entries)
@@ -57,6 +61,8 @@ public final class AltitudeConfig
                         continue;
                     }
 
+                    configChanged |= clampBandConfigValues(bandConfig);
+
                     Optional<AltitudeBandConfig> parsedConfig = AltitudeBandConfig.fromConfig(bandConfig, message -> ColdSweatAltitude.LOGGER.warn(message));
                     if (parsedConfig.isEmpty())
                     {
@@ -66,6 +72,11 @@ public final class AltitudeConfig
                     AltitudeBand.fromConfig(parsedConfig.get(), message -> ColdSweatAltitude.LOGGER.warn(message))
                         .ifPresent(loadedBands::add);
                 }
+            }
+
+            if (configChanged)
+            {
+                config.save();
             }
         }
         catch (Exception exception)
@@ -119,9 +130,73 @@ public final class AltitudeConfig
     {
         return new AeronauticsHeatSettings(
             doubleValue(config, "aeronauticsBurnerHeat", DEFAULT_AERONAUTICS_HEAT_SETTINGS.burnerHeat()),
-            doubleValue(config, "aeronauticsBurnerRange", DEFAULT_AERONAUTICS_HEAT_SETTINGS.burnerRange()),
+            clampedRange(config, "aeronauticsBurnerRange", DEFAULT_AERONAUTICS_HEAT_SETTINGS.burnerRange()),
             doubleValue(config, "aeronauticsSteamVentHeat", DEFAULT_AERONAUTICS_HEAT_SETTINGS.steamVentHeat()),
-            doubleValue(config, "aeronauticsSteamVentRange", DEFAULT_AERONAUTICS_HEAT_SETTINGS.steamVentRange()));
+            clampedRange(config, "aeronauticsSteamVentRange", DEFAULT_AERONAUTICS_HEAT_SETTINGS.steamVentRange()));
+    }
+
+    private static boolean clampTopLevelConfigValues(CommentedConfig config)
+    {
+        boolean changed = false;
+        changed |= clampDoubleConfigValue(config, "aeronauticsBurnerRange", MAX_AERONAUTICS_HEAT_RANGE);
+        changed |= clampDoubleConfigValue(config, "aeronauticsSteamVentRange", MAX_AERONAUTICS_HEAT_RANGE);
+        return changed;
+    }
+
+    private static boolean clampBandConfigValues(CommentedConfig bandConfig)
+    {
+        Object value = bandConfig.get("shelterCheckRadius");
+        if (!(value instanceof Number number) || number.intValue() <= MAX_SHELTER_CHECK_RADIUS)
+        {
+            return false;
+        }
+
+        String id = Optional.ofNullable(bandConfig.get("id"))
+            .map(Object::toString)
+            .orElse("<unknown>");
+        bandConfig.set("shelterCheckRadius", MAX_SHELTER_CHECK_RADIUS);
+        ColdSweatAltitude.LOGGER.warn(
+            "Altitude band '{}' has shelterCheckRadius={} which is above the safe maximum {}. Rewriting it to {} to avoid expensive shelter scans.",
+            id,
+            number.intValue(),
+            MAX_SHELTER_CHECK_RADIUS,
+            MAX_SHELTER_CHECK_RADIUS);
+        return true;
+    }
+
+    private static boolean clampDoubleConfigValue(CommentedConfig config, String key, double max)
+    {
+        Object value = config.get(key);
+        if (!(value instanceof Number number) || number.doubleValue() <= max)
+        {
+            return false;
+        }
+
+        config.set(key, max);
+        ColdSweatAltitude.LOGGER.warn(
+            "{}={} is above the safe maximum {}. Rewriting it to {} to avoid expensive heat-source scans.",
+            key,
+            number.doubleValue(),
+            max,
+            max);
+        return true;
+    }
+
+    private static double clampedRange(CommentedConfig config, String key, double fallback)
+    {
+        double value = doubleValue(config, key, fallback);
+        if (value <= MAX_AERONAUTICS_HEAT_RANGE)
+        {
+            return value;
+        }
+
+        ColdSweatAltitude.LOGGER.warn(
+            "{}={} is above the safe maximum {}. Clamping to {} to avoid expensive heat-source scans.",
+            key,
+            value,
+            MAX_AERONAUTICS_HEAT_RANGE,
+            MAX_AERONAUTICS_HEAT_RANGE);
+        return MAX_AERONAUTICS_HEAT_RANGE;
     }
 
     private static double doubleValue(CommentedConfig config, String key, double fallback)
@@ -139,6 +214,7 @@ public final class AltitudeConfig
             # Leave maxY unset to make a band open-ended upward.
             # These defaults are intended for a mostly vanilla-style overworld height range.
             # Aeronautics heat-source tuning applies to both normal world blocks and Sable ship interiors.
+            # Performance guard: shelterCheckRadius and Aeronautics heat ranges above 16 are rewritten to 16 when loaded.
 
             aeronauticsBurnerHeat = 0.14
             aeronauticsBurnerRange = 7.0

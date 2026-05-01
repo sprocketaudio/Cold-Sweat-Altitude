@@ -7,8 +7,10 @@ import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.sprocketgames.coldsweataltitude.ColdSweatAltitude;
 
+import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.util.List;
+import java.util.UUID;
 
 public final class SableSublevelResolver
 {
@@ -18,6 +20,9 @@ public final class SableSublevelResolver
     private final Method getContainer;
     private final Method getAllSubLevels;
     private final Method getTrackingSubLevel;
+    private final Method getCollisionInfo;
+    private final Method getLastTrackingSubLevelId;
+    private final Method getContainerSubLevel;
     private final Method getPlotPosition;
     private final Method logicalPose;
     private final Method transformPosition;
@@ -25,6 +30,8 @@ public final class SableSublevelResolver
     private final Method boundingBox;
     private final Method boundingBoxContains;
     private final Method getLevel;
+    private final Field collisionTrackingSubLevel;
+    private final Field collisionPreTrackingSubLevel;
 
     private SableSublevelResolver()
     {
@@ -33,6 +40,9 @@ public final class SableSublevelResolver
         getContainer = data == null ? null : data.getContainer();
         getAllSubLevels = data == null ? null : data.getAllSubLevels();
         getTrackingSubLevel = data == null ? null : data.getTrackingSubLevel();
+        getCollisionInfo = data == null ? null : data.getCollisionInfo();
+        getLastTrackingSubLevelId = data == null ? null : data.getLastTrackingSubLevelId();
+        getContainerSubLevel = data == null ? null : data.getContainerSubLevel();
         getPlotPosition = data == null ? null : data.getPlotPosition();
         logicalPose = data == null ? null : data.logicalPose();
         transformPosition = data == null ? null : data.transformPosition();
@@ -40,6 +50,8 @@ public final class SableSublevelResolver
         boundingBox = data == null ? null : data.boundingBox();
         boundingBoxContains = data == null ? null : data.boundingBoxContains();
         getLevel = data == null ? null : data.getLevel();
+        collisionTrackingSubLevel = data == null ? null : data.collisionTrackingSubLevel();
+        collisionPreTrackingSubLevel = data == null ? null : data.collisionPreTrackingSubLevel();
     }
 
     public SableSublevelContext resolve(Player player)
@@ -60,6 +72,14 @@ public final class SableSublevelResolver
             Vec3 plotPosition = tryGetPlotPosition(player);
             Object subLevel = getTrackingSubLevel.invoke(player);
 
+            if (subLevel == null)
+            {
+                subLevel = findCollisionSubLevel(player);
+            }
+            if (subLevel == null)
+            {
+                subLevel = findLastTrackingSubLevel(container, player);
+            }
             if (subLevel == null && plotPosition != null)
             {
                 subLevel = findBestMatchingSubLevelByLocal(container, plotPosition, player.position());
@@ -163,17 +183,45 @@ public final class SableSublevelResolver
         }
     }
 
+    private Object findCollisionSubLevel(Player player) throws ReflectiveOperationException
+    {
+        Object collisionInfo = getCollisionInfo.invoke(player);
+        if (collisionInfo == null)
+        {
+            return null;
+        }
+
+        Object subLevel = collisionTrackingSubLevel.get(collisionInfo);
+        if (subLevel != null)
+        {
+            return subLevel;
+        }
+
+        return collisionPreTrackingSubLevel.get(collisionInfo);
+    }
+
+    private Object findLastTrackingSubLevel(Object container, Player player) throws ReflectiveOperationException
+    {
+        Object lastTrackingId = getLastTrackingSubLevelId.invoke(player);
+        return lastTrackingId instanceof UUID uuid ? getContainerSubLevel.invoke(container, uuid) : null;
+    }
+
     private record ReflectionData(
         Method getContainer,
         Method getAllSubLevels,
         Method getTrackingSubLevel,
+        Method getCollisionInfo,
+        Method getLastTrackingSubLevelId,
+        Method getContainerSubLevel,
         Method getPlotPosition,
         Method logicalPose,
         Method transformPosition,
         Method transformPositionInverse,
         Method boundingBox,
         Method boundingBoxContains,
-        Method getLevel)
+        Method getLevel,
+        Field collisionTrackingSubLevel,
+        Field collisionPreTrackingSubLevel)
     {
         static ReflectionData load()
         {
@@ -185,18 +233,24 @@ public final class SableSublevelResolver
                 Class<?> subLevelClass = Class.forName("dev.ryanhcode.sable.sublevel.SubLevel");
                 Class<?> poseClass = Class.forName("dev.ryanhcode.sable.companion.math.Pose3d");
                 Class<?> boundingBoxClass = Class.forName("dev.ryanhcode.sable.companion.math.BoundingBox3dc");
+                Class<?> collisionInfoClass = Class.forName("dev.ryanhcode.sable.sublevel.entity_collision.SubLevelEntityCollision$CollisionInfo");
 
                 return new ReflectionData(
                     subLevelContainerClass.getMethod("getContainer", serverLevelClass),
                     subLevelContainerClass.getMethod("getAllSubLevels"),
                     playerClass.getMethod("sable$getTrackingSubLevel"),
+                    playerClass.getMethod("sable$getCollisionInfo"),
+                    playerClass.getMethod("sable$getLastTrackingSubLevelID"),
+                    subLevelContainerClass.getMethod("getSubLevel", UUID.class),
                     playerClass.getMethod("sable$getPlotPosition"),
                     subLevelClass.getMethod("logicalPose"),
                     poseClass.getMethod("transformPosition", Vec3.class),
                     poseClass.getMethod("transformPositionInverse", Vec3.class),
                     subLevelClass.getMethod("boundingBox"),
                     boundingBoxClass.getMethod("contains", double.class, double.class, double.class),
-                    subLevelClass.getMethod("getLevel"));
+                    subLevelClass.getMethod("getLevel"),
+                    collisionInfoClass.getField("trackingSubLevel"),
+                    collisionInfoClass.getField("preTrackingSubLevel"));
             }
             catch (ReflectiveOperationException | LinkageError exception)
             {
