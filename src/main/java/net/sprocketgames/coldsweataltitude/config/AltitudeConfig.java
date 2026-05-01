@@ -137,6 +137,7 @@ public final class AltitudeConfig
             # Temperature values are applied through Cold Sweat's WORLD temperature modifiers.
             # Band id is a user-defined stable name used by commands, logs, messages, and runtime state.
             # Leave maxY unset to make a band open-ended upward.
+            # These defaults are intended for a mostly vanilla-style overworld height range.
             # Aeronautics heat-source tuning applies to both normal world blocks and Sable ship interiors.
 
             aeronauticsBurnerHeat = 0.14
@@ -150,10 +151,31 @@ public final class AltitudeConfig
             dimensions = ["minecraft:overworld"]
             dimensionMode = "WHITELIST"
             minY = -64
-            maxY = 30
-            temperatureModifier = 0.10
+            maxY = 0
+            temperatureModifier = 0.08
             modifierMode = "ADD"
             priority = 10
+            onEnterMessage = ""
+            actionbarMessage = ""
+            messageCooldownTicks = 100
+            protectionTag = ""
+            requiredPieces = 0
+            protectionReductionPerPiece = 0.0
+            fullProtectionPieces = 4
+            enableShelterCheck = false
+            shelterCheckRadius = 4
+            shelterReduction = 0.0
+
+            [[bands]]
+            id = "underground"
+            enabled = true
+            dimensions = ["minecraft:overworld"]
+            dimensionMode = "WHITELIST"
+            minY = 1
+            maxY = 63
+            temperatureModifier = 0.03
+            modifierMode = "ADD"
+            priority = 5
             onEnterMessage = ""
             actionbarMessage = ""
             messageCooldownTicks = 100
@@ -170,8 +192,8 @@ public final class AltitudeConfig
             enabled = true
             dimensions = ["minecraft:overworld"]
             dimensionMode = "WHITELIST"
-            minY = 31
-            maxY = 160
+            minY = 64
+            maxY = 191
             temperatureModifier = 0.0
             modifierMode = "ADD"
             priority = 0
@@ -187,63 +209,63 @@ public final class AltitudeConfig
             shelterReduction = 0.0
 
             [[bands]]
+            id = "high_peaks"
+            enabled = true
+            dimensions = ["minecraft:overworld"]
+            dimensionMode = "WHITELIST"
+            minY = 192
+            maxY = 255
+            temperatureModifier = -0.08
+            modifierMode = "ADD"
+            priority = 15
+            onEnterMessage = ""
+            actionbarMessage = ""
+            messageCooldownTicks = 100
+            protectionTag = ""
+            requiredPieces = 0
+            protectionReductionPerPiece = 0.0
+            fullProtectionPieces = 4
+            enableShelterCheck = true
+            shelterCheckRadius = 4
+            shelterReduction = 0.35
+
+            [[bands]]
             id = "low_sky"
             enabled = true
             dimensions = ["minecraft:overworld"]
             dimensionMode = "WHITELIST"
-            minY = 161
-            maxY = 300
-            temperatureModifier = -0.05
+            minY = 256
+            maxY = 320
+            temperatureModifier = -0.20
             modifierMode = "ADD"
             priority = 20
-            onEnterMessage = ""
-            actionbarMessage = ""
+            onEnterMessage = "The air grows colder at this altitude."
+            actionbarMessage = "Altitude chill"
             messageCooldownTicks = 100
-            protectionTag = "coldsweat_altitude:cold_altitude_protection"
-            requiredPieces = 4
-            protectionReductionPerPiece = 0.25
-            fullProtectionPieces = 4
-            enableShelterCheck = false
-            shelterCheckRadius = 4
-            shelterReduction = 0.0
-
-            [[bands]]
-            id = "high_sky"
-            enabled = true
-            dimensions = ["minecraft:overworld"]
-            dimensionMode = "WHITELIST"
-            minY = 301
-            maxY = 600
-            temperatureModifier = -0.35
-            modifierMode = "ADD"
-            priority = 30
-            onEnterMessage = ""
-            actionbarMessage = ""
-            messageCooldownTicks = 100
-            protectionTag = "coldsweat_altitude:cold_altitude_protection"
-            requiredPieces = 4
-            protectionReductionPerPiece = 0.25
+            protectionTag = ""
+            requiredPieces = 0
+            protectionReductionPerPiece = 0.0
             fullProtectionPieces = 4
             enableShelterCheck = true
             shelterCheckRadius = 4
-            shelterReduction = 0.75
+            shelterReduction = 0.50
 
             [[bands]]
             id = "extreme_sky"
             enabled = true
             dimensions = ["minecraft:overworld"]
             dimensionMode = "WHITELIST"
-            minY = 601
+            minY = 321
             maxY = 4096
-            temperatureModifier = -0.75
+            temperatureModifier = -0.45
             modifierMode = "ADD"
-            priority = 40
+            priority = 30
             onEnterMessage = "The air grows thin and bitter."
             actionbarMessage = "Extreme altitude exposure"
             messageCooldownTicks = 100
-            protectionTag = "coldsweat_altitude:cold_altitude_protection"
-            requiredPieces = 4
-            protectionReductionPerPiece = 0.25
+            protectionTag = ""
+            requiredPieces = 0
+            protectionReductionPerPiece = 0.0
             fullProtectionPieces = 4
             enableShelterCheck = true
             shelterCheckRadius = 4
