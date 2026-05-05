@@ -1,0 +1,19 @@
+{
+  "commands.coldsweat_altitude.status.line1": "Dimension=%s, Y=%s, Band=%s, AltitudeRaw=%s, AltitudeApplied=%s, ProtectionReduction=%s, ShelterReduction=%s, Shelter=%s%%, WorldShelter=%s, SableShelter=%s, Sable=%s, TicksInBand=%s",
+  "commands.coldsweat_altitude.status.line2": "HeatScanRange=%s, HeatTotal=%s, OurNet=%s, CSWorld=%s, CSBody=%s, CSCore=%s, HeatSources=%s, Hearths=%s",
+  "commands.coldsweat_altitude.reload.success": "Reloaded Cold Sweat: Altitude config with %s valid bands.",
+  "commands.coldsweat_altitude.list.empty": "No valid altitude bands are currently loaded.",
+  "commands.coldsweat_altitude.list.entry": "%s | priority=%s | minY=%s | maxY=%s | mode=%s | temp=%s",
+  "commands.coldsweat_altitude.status.heat_sources.none": "none(scan=%s)",
+  "commands.coldsweat_altitude.status.heat_sources.entry": "%s:%s@%s d=%s heat=%s",
+  "commands.coldsweat_altitude.status.hearths.none": "none",
+  "commands.coldsweat_altitude.status.hearths.entry": "%s@%s d=%s heatingOn=%s hotFuel=%s usingHotFuel=%s heatingLevel=%s maxRange=%s affecting=%s",
+  "coldsweat_altitude.value.none": "none",
+  "coldsweat_altitude.value.open": "open",
+  "coldsweat_altitude.value.not_applicable": "n/a",
+  "coldsweat_altitude.value.not_applicable_multiply": "n/a-multiply",
+  "coldsweat_altitude.band.low_sky.on_enter": "The air grows colder at this altitude.",
+  "coldsweat_altitude.band.low_sky.actionbar": "Altitude chill",
+  "coldsweat_altitude.band.extreme_sky.on_enter": "The air grows thin and bitter.",
+  "coldsweat_altitude.band.extreme_sky.actionbar": "Extreme altitude exposure"
+}

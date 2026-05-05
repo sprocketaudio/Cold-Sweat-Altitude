@@ -5,6 +5,7 @@ import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
+import net.minecraft.network.chat.MutableComponent;
 import net.minecraft.server.level.ServerPlayer;
 import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import com.momosoftworks.coldsweat.api.util.Temperature;
@@ -44,41 +45,49 @@ public final class AltitudeCommands
         Optional<AltitudeBand> activeBand = manager.findMatchingBand(player);
         HeatDiagnostics.Report heat = HeatDiagnostics.collect(player);
 
-        String bandId = activeBand.map(AltitudeBand::id).orElse("none");
+        Object bandId = activeBand.<Object>map(AltitudeBand::id).orElse(Component.translatable("coldsweat_altitude.value.none"));
         double rawModifier = activeBand.map(AltitudeBand::temperatureModifier).orElse(0.0D);
         double modifier = activeBand.map(band -> band.effectiveModifier(state.protectionMultiplier(), state.shelterMultiplier())).orElse(0.0D);
-        String numericNet = activeBand
-            .map(band -> band.modifierMode() == AltitudeBandConfig.ModifierMode.ADD
+        Object numericNet = activeBand
+            .<Object>map(band -> band.modifierMode() == AltitudeBandConfig.ModifierMode.ADD
                 ? formatDouble(modifier + heat.total())
-                : "n/a-multiply")
+                : Component.translatable("coldsweat_altitude.value.not_applicable_multiply"))
             .orElse(formatDouble(heat.total()));
-        String shelterDetails = activeBand
-            .map(band -> ", WorldShelter=" + Math.round(ShelterManager.INSTANCE.worldShelterEnclosure(player, band) * 100.0D) + "%"
-                + ", SableShelter=" + Math.round(ShelterManager.INSTANCE.sableShelterEnclosure(player, band) * 100.0D) + "%"
-                + ", Sable=" + ShelterManager.INSTANCE.sableDiagnostic(player, band))
-            .orElse("");
+        Object worldShelter = activeBand
+            .<Object>map(band -> Math.round(ShelterManager.INSTANCE.worldShelterEnclosure(player, band) * 100.0D) + "%")
+            .orElse(Component.translatable("coldsweat_altitude.value.not_applicable"));
+        Object sableShelter = activeBand
+            .<Object>map(band -> Math.round(ShelterManager.INSTANCE.sableShelterEnclosure(player, band) * 100.0D) + "%")
+            .orElse(Component.translatable("coldsweat_altitude.value.not_applicable"));
+        Object sableDiagnostic = activeBand
+            .<Object>map(band -> ShelterManager.INSTANCE.sableDiagnostic(player, band))
+            .orElse(Component.translatable("coldsweat_altitude.value.not_applicable"));
 
-        source.sendSuccess(() -> Component.literal(
-            "Dimension=" + player.level().dimension().location()
-                + ", Y=" + player.getBlockY()
-                + ", Band=" + bandId
-                + ", AltitudeRaw=" + formatDouble(rawModifier)
-                + ", AltitudeApplied=" + formatDouble(modifier)
-                + ", ProtectionReduction=" + (1.0D - state.protectionMultiplier())
-                + ", ShelterReduction=" + (1.0D - state.shelterMultiplier())
-                + ", Shelter=" + Math.round(state.shelterEnclosure() * 100.0D) + "%"
-                + shelterDetails
-                + ", TicksInBand=" + state.ticksInBand()),
+        source.sendSuccess(() -> Component.translatable(
+            "commands.coldsweat_altitude.status.line1",
+            player.level().dimension().location(),
+            player.getBlockY(),
+            bandId,
+            formatDouble(rawModifier),
+            formatDouble(modifier),
+            formatDouble(1.0D - state.protectionMultiplier()),
+            formatDouble(1.0D - state.shelterMultiplier()),
+            Math.round(state.shelterEnclosure() * 100.0D),
+            worldShelter,
+            sableShelter,
+            sableDiagnostic,
+            state.ticksInBand()),
             false);
-        source.sendSuccess(() -> Component.literal(
-            "HeatScanRange=" + heat.scanRange()
-                + ", HeatTotal=" + formatDouble(heat.total())
-                + ", OurNet=" + numericNet
-                + ", CSWorld=" + formatDouble(Temperature.get(player, Temperature.Trait.WORLD))
-                + ", CSBody=" + formatDouble(Temperature.get(player, Temperature.Trait.BODY))
-                + ", CSCore=" + formatDouble(Temperature.get(player, Temperature.Trait.CORE))
-                + ", HeatSources=" + formatHeatSources(heat)
-                + ", Hearths=" + formatHearths(heat)),
+        source.sendSuccess(() -> Component.translatable(
+            "commands.coldsweat_altitude.status.line2",
+            heat.scanRange(),
+            formatDouble(heat.total()),
+            numericNet,
+            formatDouble(Temperature.get(player, Temperature.Trait.WORLD)),
+            formatDouble(Temperature.get(player, Temperature.Trait.BODY)),
+            formatDouble(Temperature.get(player, Temperature.Trait.CORE)),
+            formatHeatSources(heat),
+            formatHearths(heat)),
             false);
         return Command.SINGLE_SUCCESS;
     }
@@ -86,7 +95,7 @@ public final class AltitudeCommands
     private static int reload(CommandSourceStack source)
     {
         int count = AltitudeConfig.reload().size();
-        source.sendSuccess(() -> Component.literal("Reloaded Cold Sweat: Altitude config with " + count + " valid bands."), true);
+        source.sendSuccess(() -> Component.translatable("commands.coldsweat_altitude.reload.success", count), true);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -94,61 +103,79 @@ public final class AltitudeCommands
     {
         if (AltitudeConfig.getBands().isEmpty())
         {
-            source.sendFailure(Component.literal("No valid altitude bands are currently loaded."));
+            source.sendFailure(Component.translatable("commands.coldsweat_altitude.list.empty"));
             return 0;
         }
 
         for (AltitudeBand band : AltitudeConfig.getBands().stream().sorted(Comparator.comparingInt(AltitudeBand::priority).reversed()).toList())
         {
-            source.sendSuccess(() -> Component.literal(
-                band.id() + " | priority=" + band.priority()
-                    + " | minY=" + band.minY()
-                    + " | maxY=" + (band.maxY() == null ? "open" : band.maxY())
-                    + " | mode=" + band.modifierMode()
-                    + " | temp=" + band.temperatureModifier()),
+            source.sendSuccess(() -> Component.translatable(
+                "commands.coldsweat_altitude.list.entry",
+                band.id(),
+                band.priority(),
+                band.minY(),
+                band.maxY() == null ? Component.translatable("coldsweat_altitude.value.open") : band.maxY(),
+                band.modifierMode(),
+                band.temperatureModifier()),
                 false);
         }
         return Command.SINGLE_SUCCESS;
     }
 
-    private static String formatHeatSources(HeatDiagnostics.Report heat)
+    private static Component formatHeatSources(HeatDiagnostics.Report heat)
     {
         if (heat.entries().isEmpty())
         {
-            return "none(scan=" + heat.scanRange() + ")";
+            return Component.translatable("commands.coldsweat_altitude.status.heat_sources.none", heat.scanRange());
         }
 
-        return heat.entries().stream()
+        return joinComponents(heat.entries().stream()
             .limit(5)
-            .map(entry -> entry.context()
-                + ":" + entry.blockId()
-                + "@" + entry.pos().toShortString()
-                + " d=" + formatDouble(entry.distance())
-                + " heat=" + formatDouble(entry.value()))
-            .toList()
-            .toString();
+            .map(entry -> Component.translatable(
+                "commands.coldsweat_altitude.status.heat_sources.entry",
+                entry.context(),
+                entry.blockId(),
+                entry.pos().toShortString(),
+                formatDouble(entry.distance()),
+                formatDouble(entry.value())))
+            .toList());
     }
 
-    private static String formatHearths(HeatDiagnostics.Report heat)
+    private static Component formatHearths(HeatDiagnostics.Report heat)
     {
         if (heat.hearths().isEmpty())
         {
-            return "none";
+            return Component.translatable("commands.coldsweat_altitude.status.hearths.none");
         }
 
-        return heat.hearths().stream()
+        return joinComponents(heat.hearths().stream()
             .limit(3)
-            .map(hearth -> hearth.context()
-                + "@" + hearth.pos().toShortString()
-                + " d=" + formatDouble(hearth.distance())
-                + " heatingOn=" + hearth.heatingOn()
-                + " hotFuel=" + hearth.hotFuel()
-                + " usingHotFuel=" + hearth.usingHotFuel()
-                + " heatingLevel=" + hearth.heatingLevel()
-                + " maxRange=" + hearth.maxRange()
-                + " affecting=" + hearth.affectingPlayer())
-            .toList()
-            .toString();
+            .map(hearth -> Component.translatable(
+                "commands.coldsweat_altitude.status.hearths.entry",
+                hearth.context(),
+                hearth.pos().toShortString(),
+                formatDouble(hearth.distance()),
+                hearth.heatingOn(),
+                hearth.hotFuel(),
+                hearth.usingHotFuel(),
+                hearth.heatingLevel(),
+                hearth.maxRange(),
+                hearth.affectingPlayer()))
+            .toList());
+    }
+
+    private static Component joinComponents(java.util.List<? extends Component> components)
+    {
+        MutableComponent joined = Component.empty();
+        for (int index = 0; index < components.size(); index++)
+        {
+            if (index > 0)
+            {
+                joined.append(Component.literal(", "));
+            }
+            joined.append(components.get(index));
+        }
+        return joined;
     }
 
     private static String formatDouble(double value)

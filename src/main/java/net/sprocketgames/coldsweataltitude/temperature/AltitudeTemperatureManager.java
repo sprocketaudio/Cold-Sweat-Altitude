@@ -14,6 +14,7 @@ import net.sprocketgames.coldsweataltitude.network.AltitudeNetwork;
 import net.sprocketgames.coldsweataltitude.player.PlayerAltitudeState;
 import net.sprocketgames.coldsweataltitude.protection.AltitudeProtectionManager;
 import net.sprocketgames.coldsweataltitude.shelter.ShelterManager;
+import net.sprocketgames.coldsweataltitude.util.UiText;
 
 import java.util.Map;
 import java.util.Optional;
@@ -140,7 +141,7 @@ public final class AltitudeTemperatureManager
         long gameTime = player.level().getGameTime();
         if (state.bandChanged() && !band.onEnterMessage().isBlank())
         {
-            player.sendSystemMessage(Component.literal(band.onEnterMessage()));
+            player.sendSystemMessage(UiText.fromConfigMessage(band.onEnterMessage()));
             state.lastMessageTick(gameTime);
             return;
         }
@@ -153,7 +154,7 @@ public final class AltitudeTemperatureManager
         int cooldown = Math.max(1, band.messageCooldownTicks());
         if (gameTime - state.lastMessageTick() >= cooldown)
         {
-            player.displayClientMessage(Component.literal(band.actionbarMessage()), true);
+            player.displayClientMessage(UiText.fromConfigMessage(band.actionbarMessage()), true);
             state.lastMessageTick(gameTime);
         }
     }
