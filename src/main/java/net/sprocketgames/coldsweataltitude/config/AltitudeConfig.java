@@ -231,11 +231,15 @@ public final class AltitudeConfig
             temperatureModifier = 0.08
             modifierMode = "ADD"
             priority = 10
-            # onEnterMessage and actionbarMessage can be plain text or translation keys.
-            # Example key format:
-            # onEnterMessage = "coldsweat_altitude.band.example.on_enter"
-            # actionbarMessage = "coldsweat_altitude.band.example.actionbar"
+            # Use plain text:
+            # onEnterMessage = "The cave air feels warmer here."
+            # Use a translation key instead:
+            # onEnterMessage = "coldsweat_altitude.band.deep_caves.on_enter"
             onEnterMessage = ""
+            # Use plain text:
+            # actionbarMessage = "Deep cave warmth"
+            # Use a translation key instead:
+            # actionbarMessage = "coldsweat_altitude.band.deep_caves.actionbar"
             actionbarMessage = ""
             messageCooldownTicks = 100
             protectionTag = ""
@@ -256,7 +260,15 @@ public final class AltitudeConfig
             temperatureModifier = 0.03
             modifierMode = "ADD"
             priority = 5
+            # Use plain text:
+            # onEnterMessage = "The underground air is calm."
+            # Use a translation key instead:
+            # onEnterMessage = "coldsweat_altitude.band.underground.on_enter"
             onEnterMessage = ""
+            # Use plain text:
+            # actionbarMessage = "Underground air"
+            # Use a translation key instead:
+            # actionbarMessage = "coldsweat_altitude.band.underground.actionbar"
             actionbarMessage = ""
             messageCooldownTicks = 100
             protectionTag = ""
@@ -277,7 +289,15 @@ public final class AltitudeConfig
             temperatureModifier = 0.0
             modifierMode = "ADD"
             priority = 0
+            # Use plain text:
+            # onEnterMessage = "You return to the surface."
+            # Use a translation key instead:
+            # onEnterMessage = "coldsweat_altitude.band.surface.on_enter"
             onEnterMessage = ""
+            # Use plain text:
+            # actionbarMessage = "Surface conditions"
+            # Use a translation key instead:
+            # actionbarMessage = "coldsweat_altitude.band.surface.actionbar"
             actionbarMessage = ""
             messageCooldownTicks = 100
             protectionTag = ""
@@ -298,7 +318,15 @@ public final class AltitudeConfig
             temperatureModifier = -0.08
             modifierMode = "ADD"
             priority = 15
+            # Use plain text:
+            # onEnterMessage = "The mountain air grows colder."
+            # Use a translation key instead:
+            # onEnterMessage = "coldsweat_altitude.band.high_peaks.on_enter"
             onEnterMessage = ""
+            # Use plain text:
+            # actionbarMessage = "High altitude chill"
+            # Use a translation key instead:
+            # actionbarMessage = "coldsweat_altitude.band.high_peaks.actionbar"
             actionbarMessage = ""
             messageCooldownTicks = 100
             protectionTag = ""
@@ -319,9 +347,16 @@ public final class AltitudeConfig
             temperatureModifier = -0.20
             modifierMode = "ADD"
             priority = 20
-            # Translation key examples:
-            onEnterMessage = "coldsweat_altitude.band.low_sky.on_enter"
-            actionbarMessage = "coldsweat_altitude.band.low_sky.actionbar"
+            # Use plain text:
+            # onEnterMessage = "The air grows colder at this altitude."
+            # Use a translation key instead:
+            # onEnterMessage = "coldsweat_altitude.band.low_sky.on_enter"
+            onEnterMessage = "The air grows colder at this altitude."
+            # Use plain text:
+            # actionbarMessage = "Altitude chill"
+            # Use a translation key instead:
+            # actionbarMessage = "coldsweat_altitude.band.low_sky.actionbar"
+            actionbarMessage = "Altitude chill"
             messageCooldownTicks = 100
             protectionTag = ""
             requiredPieces = 0
@@ -341,9 +376,16 @@ public final class AltitudeConfig
             temperatureModifier = -0.45
             modifierMode = "ADD"
             priority = 30
-            # Translation key examples:
-            onEnterMessage = "coldsweat_altitude.band.extreme_sky.on_enter"
-            actionbarMessage = "coldsweat_altitude.band.extreme_sky.actionbar"
+            # Use plain text:
+            # onEnterMessage = "The air grows thin and bitter."
+            # Use a translation key instead:
+            # onEnterMessage = "coldsweat_altitude.band.extreme_sky.on_enter"
+            onEnterMessage = "The air grows thin and bitter."
+            # Use plain text:
+            # actionbarMessage = "Extreme altitude exposure"
+            # Use a translation key instead:
+            # actionbarMessage = "coldsweat_altitude.band.extreme_sky.actionbar"
+            actionbarMessage = "Extreme altitude exposure"
             messageCooldownTicks = 100
             protectionTag = ""
             requiredPieces = 0

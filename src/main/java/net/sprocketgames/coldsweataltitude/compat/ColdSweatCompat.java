@@ -14,6 +14,7 @@ public final class ColdSweatCompat
     public static final String COLD_SWEAT_MOD_ID = "cold_sweat";
     private static final String ALTITUDE_MARKER = "ColdSweatAltitude";
     private static final String BAND_ID = "BandId";
+    private static final int MODIFIER_TICK_RATE = 40;
 
     private ColdSweatCompat()
     {
@@ -41,7 +42,6 @@ public final class ColdSweatCompat
         if (isNeutral(modifier, mode))
         {
             removeAltitudeModifier(player);
-            Temperature.updateTemperature(player);
             return;
         }
 
@@ -54,25 +54,25 @@ public final class ColdSweatCompat
         {
             existingModifier.setTemperature(modifier);
             existingModifier.setOperation(operation);
-            existingModifier.tickRate(1);
+            existingModifier.tickRate(MODIFIER_TICK_RATE);
             existingModifier.getNBT().putString(BAND_ID, bandId);
             Temperature.updateModifiers(player);
             Temperature.updateTemperature(player);
             return;
         }
 
-        SimpleTempModifier tempModifier = new SimpleTempModifier(modifier, operation).tickRate(1);
+        SimpleTempModifier tempModifier = new SimpleTempModifier(modifier, operation).tickRate(MODIFIER_TICK_RATE);
         tempModifier.getNBT().putBoolean(ALTITUDE_MARKER, true);
         tempModifier.getNBT().putString(BAND_ID, bandId);
 
         Temperature.addModifier(player, tempModifier, Temperature.Trait.WORLD, Placement.LAST);
-        Temperature.updateModifiers(player);
         Temperature.updateTemperature(player);
     }
 
     public static void removeAltitudeModifier(ServerPlayer player)
     {
         Temperature.removeModifiers(player, Temperature.Trait.WORLD, ColdSweatCompat::isAltitudeModifier);
+        Temperature.updateModifiers(player);
         Temperature.updateTemperature(player);
     }
 

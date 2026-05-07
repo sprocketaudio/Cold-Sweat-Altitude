@@ -45,47 +45,48 @@ public final class AltitudeCommands
         Optional<AltitudeBand> activeBand = manager.findMatchingBand(player);
         HeatDiagnostics.Report heat = HeatDiagnostics.collect(player);
 
-        Object bandId = activeBand.<Object>map(AltitudeBand::id).orElse(Component.translatable("coldsweat_altitude.value.none"));
+        Component bandId = activeBand.map(band -> text(band.id()))
+            .orElse(Component.translatable("coldsweat_altitude.value.none"));
         double rawModifier = activeBand.map(AltitudeBand::temperatureModifier).orElse(0.0D);
         double modifier = activeBand.map(band -> band.effectiveModifier(state.protectionMultiplier(), state.shelterMultiplier())).orElse(0.0D);
-        Object numericNet = activeBand
-            .<Object>map(band -> band.modifierMode() == AltitudeBandConfig.ModifierMode.ADD
-                ? formatDouble(modifier + heat.total())
+        Component numericNet = activeBand
+            .map(band -> band.modifierMode() == AltitudeBandConfig.ModifierMode.ADD
+                ? text(formatDouble(modifier + heat.total()))
                 : Component.translatable("coldsweat_altitude.value.not_applicable_multiply"))
-            .orElse(formatDouble(heat.total()));
-        Object worldShelter = activeBand
-            .<Object>map(band -> Math.round(ShelterManager.INSTANCE.worldShelterEnclosure(player, band) * 100.0D) + "%")
+            .orElse(text(formatDouble(heat.total())));
+        Component worldShelter = activeBand
+            .map(band -> text(Math.round(ShelterManager.INSTANCE.worldShelterEnclosure(player, band) * 100.0D) + "%"))
             .orElse(Component.translatable("coldsweat_altitude.value.not_applicable"));
-        Object sableShelter = activeBand
-            .<Object>map(band -> Math.round(ShelterManager.INSTANCE.sableShelterEnclosure(player, band) * 100.0D) + "%")
+        Component sableShelter = activeBand
+            .map(band -> text(Math.round(ShelterManager.INSTANCE.sableShelterEnclosure(player, band) * 100.0D) + "%"))
             .orElse(Component.translatable("coldsweat_altitude.value.not_applicable"));
-        Object sableDiagnostic = activeBand
-            .<Object>map(band -> ShelterManager.INSTANCE.sableDiagnostic(player, band))
+        Component sableDiagnostic = activeBand
+            .map(band -> text(ShelterManager.INSTANCE.sableDiagnostic(player, band)))
             .orElse(Component.translatable("coldsweat_altitude.value.not_applicable"));
 
         source.sendSuccess(() -> Component.translatable(
             "commands.coldsweat_altitude.status.line1",
-            player.level().dimension().location(),
-            player.getBlockY(),
+            text(player.level().dimension().location()),
+            text(player.getBlockY()),
             bandId,
-            formatDouble(rawModifier),
-            formatDouble(modifier),
-            formatDouble(1.0D - state.protectionMultiplier()),
-            formatDouble(1.0D - state.shelterMultiplier()),
-            Math.round(state.shelterEnclosure() * 100.0D),
+            text(formatDouble(rawModifier)),
+            text(formatDouble(modifier)),
+            text(formatDouble(1.0D - state.protectionMultiplier())),
+            text(formatDouble(1.0D - state.shelterMultiplier())),
+            text(Math.round(state.shelterEnclosure() * 100.0D)),
             worldShelter,
             sableShelter,
             sableDiagnostic,
-            state.ticksInBand()),
+            text(state.ticksInBand())),
             false);
         source.sendSuccess(() -> Component.translatable(
             "commands.coldsweat_altitude.status.line2",
-            heat.scanRange(),
-            formatDouble(heat.total()),
+            text(heat.scanRange()),
+            text(formatDouble(heat.total())),
             numericNet,
-            formatDouble(Temperature.get(player, Temperature.Trait.WORLD)),
-            formatDouble(Temperature.get(player, Temperature.Trait.BODY)),
-            formatDouble(Temperature.get(player, Temperature.Trait.CORE)),
+            text(formatDouble(Temperature.get(player, Temperature.Trait.WORLD))),
+            text(formatDouble(Temperature.get(player, Temperature.Trait.BODY))),
+            text(formatDouble(Temperature.get(player, Temperature.Trait.CORE))),
             formatHeatSources(heat),
             formatHearths(heat)),
             false);
@@ -95,7 +96,7 @@ public final class AltitudeCommands
     private static int reload(CommandSourceStack source)
     {
         int count = AltitudeConfig.reload().size();
-        source.sendSuccess(() -> Component.translatable("commands.coldsweat_altitude.reload.success", count), true);
+        source.sendSuccess(() -> Component.translatable("commands.coldsweat_altitude.reload.success", text(count)), true);
         return Command.SINGLE_SUCCESS;
     }
 
@@ -111,12 +112,12 @@ public final class AltitudeCommands
         {
             source.sendSuccess(() -> Component.translatable(
                 "commands.coldsweat_altitude.list.entry",
-                band.id(),
-                band.priority(),
-                band.minY(),
-                band.maxY() == null ? Component.translatable("coldsweat_altitude.value.open") : band.maxY(),
-                band.modifierMode(),
-                band.temperatureModifier()),
+                text(band.id()),
+                text(band.priority()),
+                text(band.minY()),
+                band.maxY() == null ? Component.translatable("coldsweat_altitude.value.open") : text(band.maxY()),
+                text(band.modifierMode()),
+                text(band.temperatureModifier())),
                 false);
         }
         return Command.SINGLE_SUCCESS;
@@ -126,18 +127,18 @@ public final class AltitudeCommands
     {
         if (heat.entries().isEmpty())
         {
-            return Component.translatable("commands.coldsweat_altitude.status.heat_sources.none", heat.scanRange());
+            return Component.translatable("commands.coldsweat_altitude.status.heat_sources.none", text(heat.scanRange()));
         }
 
         return joinComponents(heat.entries().stream()
             .limit(5)
             .map(entry -> Component.translatable(
                 "commands.coldsweat_altitude.status.heat_sources.entry",
-                entry.context(),
-                entry.blockId(),
-                entry.pos().toShortString(),
-                formatDouble(entry.distance()),
-                formatDouble(entry.value())))
+                text(entry.context()),
+                text(entry.blockId()),
+                text(entry.pos().toShortString()),
+                text(formatDouble(entry.distance())),
+                text(formatDouble(entry.value()))))
             .toList());
     }
 
@@ -152,15 +153,15 @@ public final class AltitudeCommands
             .limit(3)
             .map(hearth -> Component.translatable(
                 "commands.coldsweat_altitude.status.hearths.entry",
-                hearth.context(),
-                hearth.pos().toShortString(),
-                formatDouble(hearth.distance()),
-                hearth.heatingOn(),
-                hearth.hotFuel(),
-                hearth.usingHotFuel(),
-                hearth.heatingLevel(),
-                hearth.maxRange(),
-                hearth.affectingPlayer()))
+                text(hearth.context()),
+                text(hearth.pos().toShortString()),
+                text(formatDouble(hearth.distance())),
+                text(hearth.heatingOn()),
+                text(hearth.hotFuel()),
+                text(hearth.usingHotFuel()),
+                text(hearth.heatingLevel()),
+                text(hearth.maxRange()),
+                text(hearth.affectingPlayer())))
             .toList());
     }
 
@@ -181,5 +182,10 @@ public final class AltitudeCommands
     private static String formatDouble(double value)
     {
         return String.format(java.util.Locale.ROOT, "%.3f", value);
+    }
+
+    private static Component text(Object value)
+    {
+        return Component.literal(String.valueOf(value));
     }
 }
