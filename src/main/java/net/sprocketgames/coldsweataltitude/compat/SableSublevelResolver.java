@@ -2,116 +2,102 @@ package net.sprocketgames.coldsweataltitude.compat;
 
 import net.minecraft.core.BlockPos;
 import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.entity.Entity;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.sprocketgames.coldsweataltitude.ColdSweatAltitude;
+import org.joml.Vector3d;
+import org.joml.Vector3dc;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
-import java.util.List;
-import java.util.UUID;
+import java.util.Objects;
 
 public final class SableSublevelResolver
 {
     public static final SableSublevelResolver INSTANCE = new SableSublevelResolver();
 
-    private final boolean available;
-    private final Method getContainer;
-    private final Method getAllSubLevels;
-    private final Method getTrackingSubLevel;
-    private final Method getCollisionInfo;
-    private final Method getLastTrackingSubLevelId;
-    private final Method getContainerSubLevel;
-    private final Method getPlotPosition;
-    private final Method logicalPose;
-    private final Method transformPosition;
-    private final Method transformPositionInverse;
-    private final Method boundingBox;
-    private final Method boundingBoxContains;
-    private final Method getLevel;
-    private final Field collisionTrackingSubLevel;
-    private final Field collisionPreTrackingSubLevel;
+    private Field plotContainerField;
+    private Field containerSubLevelsField;
+    private Field containerOriginXField;
+    private Field containerOriginZField;
+    private Field containerLogPlotSizeField;
+    private Field containerLogSideLengthField;
+    private Field containerAllSubLevelsField;
+    private Field trackingSubLevelField;
+    private Field collisionInfoField;
+    private Field getPlotField;
+    private Field getLevelField;
+    private Field getPoseField;
+    private Field getGlobalBoundsField;
+    private Field plotLocalBoundsField;
+    private Method plotBoundsContains;
+    private Field collisionTrackingSubLevel;
+    private Field collisionPreTrackingSubLevel;
+    private Field boundsMinXField;
+    private Field boundsMinYField;
+    private Field boundsMinZField;
+    private Field boundsMaxXField;
+    private Field boundsMaxYField;
+    private Field boundsMaxZField;
 
     private SableSublevelResolver()
     {
-        ReflectionData data = ReflectionData.load();
-        available = data != null;
-        getContainer = data == null ? null : data.getContainer();
-        getAllSubLevels = data == null ? null : data.getAllSubLevels();
-        getTrackingSubLevel = data == null ? null : data.getTrackingSubLevel();
-        getCollisionInfo = data == null ? null : data.getCollisionInfo();
-        getLastTrackingSubLevelId = data == null ? null : data.getLastTrackingSubLevelId();
-        getContainerSubLevel = data == null ? null : data.getContainerSubLevel();
-        getPlotPosition = data == null ? null : data.getPlotPosition();
-        logicalPose = data == null ? null : data.logicalPose();
-        transformPosition = data == null ? null : data.transformPosition();
-        transformPositionInverse = data == null ? null : data.transformPositionInverse();
-        boundingBox = data == null ? null : data.boundingBox();
-        boundingBoxContains = data == null ? null : data.boundingBoxContains();
-        getLevel = data == null ? null : data.getLevel();
-        collisionTrackingSubLevel = data == null ? null : data.collisionTrackingSubLevel();
-        collisionPreTrackingSubLevel = data == null ? null : data.collisionPreTrackingSubLevel();
     }
 
     public SableSublevelContext resolve(Player player)
     {
-        if (!available || !(player.level() instanceof ServerLevel serverLevel))
+        if (!(player.level() instanceof ServerLevel serverLevel))
         {
             return null;
         }
 
         try
         {
-            Object container = getContainer.invoke(null, serverLevel);
+            Object container = getServerContainer(serverLevel);
             if (container == null)
             {
                 return null;
             }
 
-            Vec3 plotPosition = tryGetPlotPosition(player);
-            Object subLevel = getTrackingSubLevel.invoke(player);
+            Object subLevel = findContainingSubLevel(container, player.position());
+            Vec3 plotPosition;
 
-            if (subLevel == null)
+            if (subLevel != null)
             {
-                subLevel = findCollisionSubLevel(player);
+                // When the entity is already inside Sable's plot grid, its server position is already plot-space.
+                plotPosition = player.position();
             }
-            if (subLevel == null)
+            else
             {
-                subLevel = findLastTrackingSubLevel(container, player);
+                subLevel = findTrackingOrVehicleOrCollisionSubLevel(container, player);
+                if (subLevel == null)
+                {
+                    subLevel = findIntersectingSubLevel(container, player);
+                    if (subLevel == null)
+                    {
+                        return null;
+                    }
+                }
+
+                Object pose = poseField(subLevel).get(subLevel);
+                plotPosition = transformPosition(pose, "transformPositionInverse", player.position());
             }
-            if (subLevel == null && plotPosition != null)
-            {
-                subLevel = findBestMatchingSubLevelByLocal(container, plotPosition, player.position());
-            }
-            if (subLevel == null)
-            {
-                subLevel = findContainingSubLevelByGlobalBounds(container, player.position());
-            }
-            if (subLevel == null)
+
+            if (!isInsidePlotBounds(subLevel, plotPosition))
             {
                 return null;
             }
 
-            Vec3 localPosition = plotPosition;
-            if (localPosition == null)
-            {
-                Object pose = logicalPose.invoke(subLevel);
-                Object transformed = transformPositionInverse.invoke(pose, player.position());
-                if (!(transformed instanceof Vec3 vec3))
-                {
-                    return null;
-                }
-                localPosition = vec3;
-            }
-
-            Object levelObject = getLevel.invoke(subLevel);
+            Object levelObject = levelField(subLevel).get(subLevel);
             if (!(levelObject instanceof Level level))
             {
                 return null;
             }
 
-            return new SableSublevelContext(level, localPosition, BlockPos.containing(localPosition));
+            return new SableSublevelContext(subLevel, level, plotPosition, BlockPos.containing(plotPosition));
         }
         catch (ReflectiveOperationException | RuntimeException exception)
         {
@@ -120,142 +106,446 @@ public final class SableSublevelResolver
         }
     }
 
-    private Object findContainingSubLevelByGlobalBounds(Object container, Vec3 globalPosition) throws ReflectiveOperationException
+    private Object getServerContainer(ServerLevel serverLevel) throws ReflectiveOperationException
     {
-        Object subLevels = getAllSubLevels.invoke(container);
-        if (!(subLevels instanceof List<?> list))
+        if (plotContainerField == null)
+        {
+            plotContainerField = serverLevel.getClass().getDeclaredField("sable$plotContainer");
+            plotContainerField.setAccessible(true);
+        }
+        return plotContainerField.get(serverLevel);
+    }
+
+    private Object findContainingSubLevel(Object container, Vec3 position) throws ReflectiveOperationException
+    {
+        BlockPos blockPos = BlockPos.containing(position);
+        int chunkX = blockPos.getX() >> 4;
+        int chunkZ = blockPos.getZ() >> 4;
+
+        int logPlotSize = (int) containerLogPlotSizeField(container).get(container);
+        int originX = (int) containerOriginXField(container).get(container);
+        int originZ = (int) containerOriginZField(container).get(container);
+        int logSideLength = (int) containerLogSideLengthField(container).get(container);
+
+        int plotX = (chunkX >> logPlotSize) - originX;
+        int plotZ = (chunkZ >> logPlotSize) - originZ;
+        int sideLength = 1 << logSideLength;
+        if (plotX < 0 || plotX >= sideLength || plotZ < 0 || plotZ >= sideLength)
         {
             return null;
         }
 
-        for (Object subLevel : list)
+        Object[] subLevels = (Object[]) containerSubLevelsField(container).get(container);
+        return subLevels[plotX + (plotZ << logSideLength)];
+    }
+
+    private Object findTrackingOrVehicleOrCollisionSubLevel(Object container, Player player) throws ReflectiveOperationException
+    {
+        Object subLevel = trackingSubLevel(player);
+        if (subLevel != null)
         {
-            Object box = boundingBox.invoke(subLevel);
-            if (box != null && (Boolean) boundingBoxContains.invoke(box, globalPosition.x, globalPosition.y, globalPosition.z))
+            return subLevel;
+        }
+
+        Entity vehicle = player.getVehicle();
+        if (vehicle != null)
+        {
+            subLevel = findContainingSubLevel(container, vehicle.position());
+            if (subLevel != null)
+            {
+                return subLevel;
+            }
+
+            subLevel = trackingSubLevel(vehicle);
+            if (subLevel != null)
             {
                 return subLevel;
             }
         }
-        return null;
+
+        return findCollisionSubLevel(player);
     }
 
-    private Object findBestMatchingSubLevelByLocal(Object container, Vec3 localPosition, Vec3 globalPosition) throws ReflectiveOperationException
+    private Object findIntersectingSubLevel(Object container, Player player) throws ReflectiveOperationException
     {
-        Object subLevels = getAllSubLevels.invoke(container);
-        if (!(subLevels instanceof List<?> list))
+        Object allSubLevelsObject = containerAllSubLevelsField(container).get(container);
+        if (!(allSubLevelsObject instanceof Iterable<?> allSubLevels))
         {
             return null;
         }
 
-        Object bestMatch = null;
-        double bestDistance = Double.MAX_VALUE;
+        AABB playerBox = player.getBoundingBox().inflate(0.1D);
+        Vec3 playerCenter = player.position();
 
-        for (Object subLevel : list)
+        Object intersecting = null;
+        for (Object subLevel : allSubLevels)
         {
-            Object pose = logicalPose.invoke(subLevel);
-            Object transformed = transformPosition.invoke(pose, localPosition);
-            if (!(transformed instanceof Vec3 transformedVec))
+            if (subLevel == null)
             {
                 continue;
             }
 
-            double distance = transformedVec.distanceToSqr(globalPosition);
-            if (distance < bestDistance)
+            if (!globalBoundsIntersects(subLevel, playerBox))
             {
-                bestDistance = distance;
-                bestMatch = subLevel;
+                continue;
             }
-        }
 
-        return bestDistance < 16.0D ? bestMatch : null;
+            Vec3 plotPosition = transformPosition(poseField(subLevel).get(subLevel), "transformPositionInverse", playerCenter);
+            if (!isInsidePlotBounds(subLevel, plotPosition))
+            {
+                continue;
+            }
+
+            intersecting = subLevel;
+            break;
+        }
+        return intersecting;
     }
 
-    private Vec3 tryGetPlotPosition(Player player)
+    private Object trackingSubLevel(Entity entity) throws ReflectiveOperationException
     {
-        try
-        {
-            Object result = getPlotPosition.invoke(player);
-            return result instanceof Vec3 vec3 ? vec3 : null;
-        }
-        catch (ReflectiveOperationException | RuntimeException exception)
-        {
-            return null;
-        }
+        return trackingSubLevelField(entity).get(entity);
     }
 
     private Object findCollisionSubLevel(Player player) throws ReflectiveOperationException
     {
-        Object collisionInfo = getCollisionInfo.invoke(player);
+        Object collisionInfo = collisionInfoField(player).get(player);
         if (collisionInfo == null)
         {
             return null;
         }
 
+        if (collisionTrackingSubLevel == null)
+        {
+            collisionTrackingSubLevel = collisionInfo.getClass().getField("trackingSubLevel");
+        }
         Object subLevel = collisionTrackingSubLevel.get(collisionInfo);
         if (subLevel != null)
         {
             return subLevel;
         }
 
+        if (collisionPreTrackingSubLevel == null)
+        {
+            collisionPreTrackingSubLevel = collisionInfo.getClass().getField("preTrackingSubLevel");
+        }
         return collisionPreTrackingSubLevel.get(collisionInfo);
     }
 
-    private Object findLastTrackingSubLevel(Object container, Player player) throws ReflectiveOperationException
+    private boolean isInsidePlotBounds(Object subLevel, Vec3 plotPosition) throws ReflectiveOperationException
     {
-        Object lastTrackingId = getLastTrackingSubLevelId.invoke(player);
-        return lastTrackingId instanceof UUID uuid ? getContainerSubLevel.invoke(container, uuid) : null;
+        if (plotPosition == null)
+        {
+            return false;
+        }
+
+        Object plot = plotField(subLevel).get(subLevel);
+        if (plot == null)
+        {
+            return false;
+        }
+
+        Object bounds = plotLocalBoundsField(plot).get(plot);
+        if (bounds == null)
+        {
+            return false;
+        }
+
+        if (plotBoundsContains == null || plotBoundsContains.getDeclaringClass() != bounds.getClass())
+        {
+            plotBoundsContains = Objects.requireNonNull(
+                findMethod(bounds.getClass(), "contains", int.class, int.class, int.class),
+                "Missing bounds contains method");
+        }
+
+        BlockPos pos = BlockPos.containing(plotPosition);
+        return Boolean.TRUE.equals(plotBoundsContains.invoke(bounds, pos.getX(), pos.getY(), pos.getZ()));
     }
 
-    private record ReflectionData(
-        Method getContainer,
-        Method getAllSubLevels,
-        Method getTrackingSubLevel,
-        Method getCollisionInfo,
-        Method getLastTrackingSubLevelId,
-        Method getContainerSubLevel,
-        Method getPlotPosition,
-        Method logicalPose,
-        Method transformPosition,
-        Method transformPositionInverse,
-        Method boundingBox,
-        Method boundingBoxContains,
-        Method getLevel,
-        Field collisionTrackingSubLevel,
-        Field collisionPreTrackingSubLevel)
+    private Vec3 transformPosition(Object pose, String methodName, Vec3 position) throws ReflectiveOperationException
     {
-        static ReflectionData load()
+        Method vec3Method = findMethod(pose.getClass(), methodName, Vec3.class);
+        if (vec3Method != null)
+        {
+            Object transformed = vec3Method.invoke(pose, position);
+            if (transformed instanceof Vec3 vec3)
+            {
+                return vec3;
+            }
+        }
+
+        Method vectorMethod = findVectorTransformMethod(pose.getClass(), methodName);
+        if (vectorMethod == null)
+        {
+            throw new NoSuchMethodException(pose.getClass().getName() + "." + methodName);
+        }
+
+        Object transformed = vectorMethod.invoke(pose, new Vector3d(position.x, position.y, position.z));
+        if (transformed instanceof Vector3dc vector)
+        {
+            return new Vec3(vector.x(), vector.y(), vector.z());
+        }
+        throw new NoSuchMethodException(pose.getClass().getName() + "." + methodName + " returned " + transformed);
+    }
+
+    private Method findVectorTransformMethod(Class<?> owner, String name)
+    {
+        for (Method candidate : owner.getMethods())
+        {
+            if (!candidate.getName().equals(name) || candidate.getParameterCount() != 1)
+            {
+                continue;
+            }
+
+            Class<?> parameterType = candidate.getParameterTypes()[0];
+            if (Vector3dc.class.isAssignableFrom(parameterType) || parameterType.isAssignableFrom(Vector3d.class))
+            {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private Method findMethod(Class<?> owner, String name, Class<?>... parameterTypes)
+    {
+        Class<?> current = owner;
+        while (current != null)
         {
             try
             {
-                Class<?> playerClass = Class.forName("net.minecraft.world.entity.player.Player");
-                Class<?> serverLevelClass = Class.forName("net.minecraft.server.level.ServerLevel");
-                Class<?> subLevelContainerClass = Class.forName("dev.ryanhcode.sable.api.sublevel.SubLevelContainer");
-                Class<?> subLevelClass = Class.forName("dev.ryanhcode.sable.sublevel.SubLevel");
-                Class<?> poseClass = Class.forName("dev.ryanhcode.sable.companion.math.Pose3d");
-                Class<?> boundingBoxClass = Class.forName("dev.ryanhcode.sable.companion.math.BoundingBox3dc");
-                Class<?> collisionInfoClass = Class.forName("dev.ryanhcode.sable.sublevel.entity_collision.SubLevelEntityCollision$CollisionInfo");
-
-                return new ReflectionData(
-                    subLevelContainerClass.getMethod("getContainer", serverLevelClass),
-                    subLevelContainerClass.getMethod("getAllSubLevels"),
-                    playerClass.getMethod("sable$getTrackingSubLevel"),
-                    playerClass.getMethod("sable$getCollisionInfo"),
-                    playerClass.getMethod("sable$getLastTrackingSubLevelID"),
-                    subLevelContainerClass.getMethod("getSubLevel", UUID.class),
-                    playerClass.getMethod("sable$getPlotPosition"),
-                    subLevelClass.getMethod("logicalPose"),
-                    poseClass.getMethod("transformPosition", Vec3.class),
-                    poseClass.getMethod("transformPositionInverse", Vec3.class),
-                    subLevelClass.getMethod("boundingBox"),
-                    boundingBoxClass.getMethod("contains", double.class, double.class, double.class),
-                    subLevelClass.getMethod("getLevel"),
-                    collisionInfoClass.getField("trackingSubLevel"),
-                    collisionInfoClass.getField("preTrackingSubLevel"));
+                Method method = current.getDeclaredMethod(name, parameterTypes);
+                method.setAccessible(true);
+                return method;
             }
-            catch (ReflectiveOperationException | LinkageError exception)
+            catch (NoSuchMethodException ignored)
             {
-                return null;
+                current = current.getSuperclass();
             }
         }
+
+        for (Class<?> iface : owner.getInterfaces())
+        {
+            try
+            {
+                Method method = iface.getDeclaredMethod(name, parameterTypes);
+                method.setAccessible(true);
+                return method;
+            }
+            catch (NoSuchMethodException ignored)
+            {
+            }
+        }
+
+        return null;
+    }
+
+    private Field containerSubLevelsField(Object container) throws NoSuchFieldException
+    {
+        if (containerSubLevelsField == null)
+        {
+            containerSubLevelsField = findField(container.getClass(), "subLevels");
+        }
+        return containerSubLevelsField;
+    }
+
+    private Field containerOriginXField(Object container) throws NoSuchFieldException
+    {
+        if (containerOriginXField == null)
+        {
+            containerOriginXField = findField(container.getClass(), "originX");
+        }
+        return containerOriginXField;
+    }
+
+    private Field containerOriginZField(Object container) throws NoSuchFieldException
+    {
+        if (containerOriginZField == null)
+        {
+            containerOriginZField = findField(container.getClass(), "originZ");
+        }
+        return containerOriginZField;
+    }
+
+    private Field containerLogPlotSizeField(Object container) throws NoSuchFieldException
+    {
+        if (containerLogPlotSizeField == null)
+        {
+            containerLogPlotSizeField = findField(container.getClass(), "logPlotSize");
+        }
+        return containerLogPlotSizeField;
+    }
+
+    private Field containerLogSideLengthField(Object container) throws NoSuchFieldException
+    {
+        if (containerLogSideLengthField == null)
+        {
+            containerLogSideLengthField = findField(container.getClass(), "logSideLength");
+        }
+        return containerLogSideLengthField;
+    }
+
+    private Field containerAllSubLevelsField(Object container) throws NoSuchFieldException
+    {
+        if (containerAllSubLevelsField == null)
+        {
+            containerAllSubLevelsField = findField(container.getClass(), "allSubLevels");
+        }
+        return containerAllSubLevelsField;
+    }
+
+    private Field trackingSubLevelField(Entity entity) throws NoSuchFieldException
+    {
+        if (trackingSubLevelField == null)
+        {
+            trackingSubLevelField = findField(entity.getClass(), "sable$trackingSubLevel");
+        }
+        return trackingSubLevelField;
+    }
+
+    private Field collisionInfoField(Player player) throws NoSuchFieldException
+    {
+        if (collisionInfoField == null)
+        {
+            collisionInfoField = findField(player.getClass(), "sable$collisionInfo");
+        }
+        return collisionInfoField;
+    }
+
+    private Field poseField(Object subLevel) throws NoSuchFieldException
+    {
+        if (getPoseField == null)
+        {
+            getPoseField = findField(subLevel.getClass(), "pose");
+        }
+        return getPoseField;
+    }
+
+    private Field globalBoundsField(Object subLevel) throws NoSuchFieldException
+    {
+        if (getGlobalBoundsField == null)
+        {
+            getGlobalBoundsField = findField(subLevel.getClass(), "globalBounds");
+        }
+        return getGlobalBoundsField;
+    }
+
+    private Field levelField(Object subLevel) throws NoSuchFieldException
+    {
+        if (getLevelField == null)
+        {
+            getLevelField = findField(subLevel.getClass(), "level");
+        }
+        return getLevelField;
+    }
+
+    private Field plotField(Object subLevel) throws NoSuchFieldException
+    {
+        if (getPlotField == null)
+        {
+            getPlotField = findField(subLevel.getClass(), "plot");
+        }
+        return getPlotField;
+    }
+
+    private Field plotLocalBoundsField(Object plot) throws NoSuchFieldException
+    {
+        if (plotLocalBoundsField == null)
+        {
+            plotLocalBoundsField = findField(plot.getClass(), "localBounds");
+        }
+        return plotLocalBoundsField;
+    }
+
+    private boolean globalBoundsIntersects(Object subLevel, AABB playerBox) throws ReflectiveOperationException
+    {
+        Object bounds = globalBoundsField(subLevel).get(subLevel);
+        if (bounds == null)
+        {
+            return false;
+        }
+
+        double minX = ((Number) minXField(bounds).get(bounds)).doubleValue();
+        double minY = ((Number) minYField(bounds).get(bounds)).doubleValue();
+        double minZ = ((Number) minZField(bounds).get(bounds)).doubleValue();
+        double maxX = ((Number) maxXField(bounds).get(bounds)).doubleValue();
+        double maxY = ((Number) maxYField(bounds).get(bounds)).doubleValue();
+        double maxZ = ((Number) maxZField(bounds).get(bounds)).doubleValue();
+
+        return playerBox.maxX > minX && playerBox.minX < maxX
+            && playerBox.maxY > minY && playerBox.minY < maxY
+            && playerBox.maxZ > minZ && playerBox.minZ < maxZ;
+    }
+
+    private Field minXField(Object bounds) throws NoSuchFieldException
+    {
+        if (boundsMinXField == null)
+        {
+            boundsMinXField = findField(bounds.getClass(), "minX");
+        }
+        return boundsMinXField;
+    }
+
+    private Field minYField(Object bounds) throws NoSuchFieldException
+    {
+        if (boundsMinYField == null)
+        {
+            boundsMinYField = findField(bounds.getClass(), "minY");
+        }
+        return boundsMinYField;
+    }
+
+    private Field minZField(Object bounds) throws NoSuchFieldException
+    {
+        if (boundsMinZField == null)
+        {
+            boundsMinZField = findField(bounds.getClass(), "minZ");
+        }
+        return boundsMinZField;
+    }
+
+    private Field maxXField(Object bounds) throws NoSuchFieldException
+    {
+        if (boundsMaxXField == null)
+        {
+            boundsMaxXField = findField(bounds.getClass(), "maxX");
+        }
+        return boundsMaxXField;
+    }
+
+    private Field maxYField(Object bounds) throws NoSuchFieldException
+    {
+        if (boundsMaxYField == null)
+        {
+            boundsMaxYField = findField(bounds.getClass(), "maxY");
+        }
+        return boundsMaxYField;
+    }
+
+    private Field maxZField(Object bounds) throws NoSuchFieldException
+    {
+        if (boundsMaxZField == null)
+        {
+            boundsMaxZField = findField(bounds.getClass(), "maxZ");
+        }
+        return boundsMaxZField;
+    }
+
+    private Field findField(Class<?> owner, String name) throws NoSuchFieldException
+    {
+        Class<?> current = owner;
+        while (current != null)
+        {
+            try
+            {
+                Field field = current.getDeclaredField(name);
+                field.setAccessible(true);
+                return field;
+            }
+            catch (NoSuchFieldException ignored)
+            {
+                current = current.getSuperclass();
+            }
+        }
+        throw new NoSuchFieldException(owner.getName() + "." + name);
     }
 }

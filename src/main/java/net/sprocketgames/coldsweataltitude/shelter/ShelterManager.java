@@ -12,6 +12,7 @@ import net.sprocketgames.coldsweataltitude.temperature.AltitudeBand;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Predicate;
 
 public final class ShelterManager
 {
@@ -103,20 +104,25 @@ public final class ShelterManager
 
     static double enclosure(BlockGetter level, BlockPos origin, int radius)
     {
-        if (isEnclosedVolume(level, origin, radius))
+        return enclosure(level, origin, radius, pos -> true);
+    }
+
+    static double enclosure(BlockGetter level, BlockPos origin, int radius, Predicate<BlockPos> inBounds)
+    {
+        if (isEnclosedVolume(level, origin, radius, inBounds))
         {
             return 1.0D;
         }
-        return directionalEnclosure(level, origin, radius);
+        return directionalEnclosure(level, origin, radius, inBounds);
     }
 
-    private static double directionalEnclosure(BlockGetter level, BlockPos origin, int radius)
+    private static double directionalEnclosure(BlockGetter level, BlockPos origin, int radius, Predicate<BlockPos> inBounds)
     {
         int closedDirections = 0;
 
         for (double[] direction : CHECK_DIRECTIONS)
         {
-            if (hasClosure(level, origin, radius, direction[0], direction[1], direction[2]))
+            if (hasClosure(level, origin, radius, direction[0], direction[1], direction[2], inBounds))
             {
                 closedDirections++;
             }
@@ -125,9 +131,9 @@ public final class ShelterManager
         return closedDirections / (double) CHECK_DIRECTIONS.length;
     }
 
-    private static boolean isEnclosedVolume(BlockGetter level, BlockPos origin, int radius)
+    private static boolean isEnclosedVolume(BlockGetter level, BlockPos origin, int radius, Predicate<BlockPos> inBounds)
     {
-        if (isClosureBlock(level, origin))
+        if (!inBounds.test(origin) || isClosureBlock(level, origin, inBounds))
         {
             return false;
         }
@@ -148,7 +154,7 @@ public final class ShelterManager
             for (int[] direction : FLOOD_DIRECTIONS)
             {
                 BlockPos next = current.offset(direction[0], direction[1], direction[2]);
-                if (visited.contains(next) || isClosureBlock(level, next))
+                if (visited.contains(next) || isClosureBlock(level, next, inBounds))
                 {
                     continue;
                 }
@@ -168,7 +174,7 @@ public final class ShelterManager
             || Math.abs(current.getZ() - origin.getZ()) >= radius;
     }
 
-    private static boolean hasClosure(BlockGetter level, BlockPos origin, int radius, double dx, double dy, double dz)
+    private static boolean hasClosure(BlockGetter level, BlockPos origin, int radius, double dx, double dy, double dz, Predicate<BlockPos> inBounds)
     {
         double originX = origin.getX() + 0.5D;
         double originY = origin.getY() + 0.5D;
@@ -177,7 +183,7 @@ public final class ShelterManager
         for (double step = 0.75D; step <= radius; step += 0.5D)
         {
             BlockPos pos = BlockPos.containing(originX + dx * step, originY + dy * step, originZ + dz * step);
-            if (isClosureBlock(level, pos))
+            if (isClosureBlock(level, pos, inBounds))
             {
                 return true;
             }
@@ -185,8 +191,13 @@ public final class ShelterManager
         return false;
     }
 
-    private static boolean isClosureBlock(BlockGetter level, BlockPos pos)
+    private static boolean isClosureBlock(BlockGetter level, BlockPos pos, Predicate<BlockPos> inBounds)
     {
+        if (!inBounds.test(pos))
+        {
+            return false;
+        }
+
         BlockState state = level.getBlockState(pos);
         if (state.getBlock() instanceof DoorBlock)
         {
