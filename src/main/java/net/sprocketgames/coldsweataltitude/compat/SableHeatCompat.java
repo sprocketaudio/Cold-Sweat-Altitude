@@ -30,7 +30,7 @@ public final class SableHeatCompat
     public static void register()
     {
         NeoForge.EVENT_BUS.register(new EventHandler());
-        ColdSweatAltitude.LOGGER.info("Registering Sable heat-source compat modifiers (block temps + hearth).");
+        ColdSweatAltitude.LOGGER.info("Registering Sable heat-source compat block temperatures and Sable-only temp modifiers.");
     }
 
     private static final class EventHandler
@@ -56,6 +56,8 @@ public final class SableHeatCompat
         @SubscribeEvent
         public void onGatherDefaultModifiers(GatherDefaultTempModifiersEvent event)
         {
+            // Cold Sweat 2.4.1's sublevel helper still only implements Valkyrien transforms in source.
+            // Keep Altitude's custom modifiers active for Sable until upstream native support covers it.
             if (!(event.getEntity() instanceof Player) || event.getTrait() != Temperature.Trait.WORLD)
             {
                 return;

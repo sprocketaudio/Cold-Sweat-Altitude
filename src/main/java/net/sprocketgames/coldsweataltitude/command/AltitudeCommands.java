@@ -144,6 +144,10 @@ public final class AltitudeCommands
 
     private static Component formatHearths(HeatDiagnostics.Report heat)
     {
+        if (heat.error() != null)
+        {
+            return text("error(" + heat.error() + ")");
+        }
         if (heat.hearths().isEmpty())
         {
             return Component.translatable("commands.coldsweat_altitude.status.hearths.none");
@@ -157,9 +161,13 @@ public final class AltitudeCommands
                 text(hearth.pos().toShortString()),
                 text(formatDouble(hearth.distance())),
                 text(hearth.heatingOn()),
+                text(hearth.coolingOn()),
                 text(hearth.hotFuel()),
+                text(hearth.coldFuel()),
                 text(hearth.usingHotFuel()),
+                text(hearth.usingColdFuel()),
                 text(hearth.heatingLevel()),
+                text(hearth.coolingLevel()),
                 text(hearth.maxRange()),
                 text(hearth.affectingPlayer())))
             .toList());

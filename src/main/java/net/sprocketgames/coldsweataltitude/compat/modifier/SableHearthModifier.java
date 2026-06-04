@@ -21,6 +21,8 @@ import java.util.function.Function;
 public final class SableHearthModifier extends TempModifier
 {
     private static final int HEARTH_SEARCH_RADIUS = 24;
+    private static final Method HEARTH_AREA_CONTAINS_POS = findHearthAreaMethod("areaContainsPos");
+    private static final Method HEARTH_IS_AFFECTING_POS = findHearthAreaMethod("isAffectingPos");
 
     @Override
     protected Function<Double, Double> calculate(LivingEntity entity, Temperature.Trait trait)
@@ -60,7 +62,7 @@ public final class SableHearthModifier extends TempModifier
             {
                 continue;
             }
-            if (!hearth.isAffectingPos(occupiedPositions))
+            if (!hearthAffectsPositions(hearth, occupiedPositions))
             {
                 continue;
             }
@@ -69,6 +71,46 @@ public final class SableHearthModifier extends TempModifier
         }
 
         return temp -> temp;
+    }
+
+    private static boolean hearthAffectsPositions(HearthBlockEntity hearth, List<BlockPos> positions)
+    {
+        if (tryHearthAreaMethod(hearth, HEARTH_AREA_CONTAINS_POS, positions))
+        {
+            return true;
+        }
+        return tryHearthAreaMethod(hearth, HEARTH_IS_AFFECTING_POS, positions);
+    }
+
+    private static boolean tryHearthAreaMethod(HearthBlockEntity hearth, Method method, List<BlockPos> positions)
+    {
+        if (method == null)
+        {
+            return false;
+        }
+        try
+        {
+            Object result = method.invoke(hearth, positions);
+            return result instanceof Boolean value && value;
+        }
+        catch (ReflectiveOperationException | RuntimeException ignored)
+        {
+            return false;
+        }
+    }
+
+    private static Method findHearthAreaMethod(String name)
+    {
+        try
+        {
+            Method method = HearthBlockEntity.class.getMethod(name, List.class);
+            method.setAccessible(true);
+            return method;
+        }
+        catch (ReflectiveOperationException | RuntimeException ignored)
+        {
+            return null;
+        }
     }
 
     private static boolean tryInsulate(HearthBlockEntity hearth, LivingEntity entity)

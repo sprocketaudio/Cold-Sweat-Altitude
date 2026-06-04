@@ -7,7 +7,7 @@
   "commands.coldsweat_altitude.status.heat_sources.none": "none(scan=%s)",
   "commands.coldsweat_altitude.status.heat_sources.entry": "%s:%s@%s d=%s heat=%s",
   "commands.coldsweat_altitude.status.hearths.none": "none",
-  "commands.coldsweat_altitude.status.hearths.entry": "%s@%s d=%s heatingOn=%s hotFuel=%s usingHotFuel=%s heatingLevel=%s maxRange=%s affecting=%s",
+  "commands.coldsweat_altitude.status.hearths.entry": "%s@%s d=%s heatingOn=%s coolingOn=%s hotFuel=%s coldFuel=%s usingHotFuel=%s usingColdFuel=%s heatingLevel=%s coolingLevel=%s maxRange=%s affecting=%s",
   "coldsweat_altitude.value.none": "none",
   "coldsweat_altitude.value.open": "open",
   "coldsweat_altitude.value.not_applicable": "n/a",

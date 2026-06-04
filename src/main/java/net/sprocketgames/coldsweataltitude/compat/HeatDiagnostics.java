@@ -14,6 +14,7 @@ import net.minecraft.world.phys.Vec3;
 import com.momosoftworks.coldsweat.common.blockentity.HearthBlockEntity;
 import net.sprocketgames.coldsweataltitude.compat.blocktemp.AeronauticsHeatSourceBlockTemp;
 
+import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -21,33 +22,44 @@ import java.util.List;
 
 public final class HeatDiagnostics
 {
+    private static final Method HEARTH_AREA_CONTAINS_POS = findHearthAreaMethod("areaContainsPos");
+    private static final Method HEARTH_IS_AFFECTING_POS = findHearthAreaMethod("isAffectingPos");
+
     private HeatDiagnostics()
     {
     }
 
     public static Report collect(ServerPlayer player)
     {
-        int scanRange = AeronauticsHeatSourceBlockTemp.scanRange();
-        List<Entry> entries = new ArrayList<>();
-        List<HearthEntry> hearths = new ArrayList<>();
-
-        scan("World", player.level(), player, player.position(), player.blockPosition(), scanRange, entries);
-        scanHearths("World", player.level(), player.getBoundingBox(), player.position(), player.blockPosition(), hearths);
-
-        SableSublevelContext context = SableSublevelResolver.INSTANCE.resolve(player);
-        if (context != null)
+        try
         {
-            scan("Sable", context.level(), player, context.localPosition(), context.localBlockPos(), scanRange, entries);
-            Vec3 delta = context.localPosition().subtract(player.position());
-            AABB localBox = player.getBoundingBox().move(delta);
-            localBox = localBox.setMaxY(Math.max(localBox.maxY, localBox.minY + 2.0D));
-            scanHearths("Sable", context.level(), localBox, context.localPosition(), context.localBlockPos(), hearths);
-        }
+            int scanRange = AeronauticsHeatSourceBlockTemp.scanRange();
+            List<Entry> entries = new ArrayList<>();
+            List<HearthEntry> hearths = new ArrayList<>();
 
-        entries.sort(Comparator.comparingDouble((Entry entry) -> Math.abs(entry.value())).reversed());
-        hearths.sort(Comparator.comparingDouble(HearthEntry::distance));
-        double total = entries.stream().mapToDouble(Entry::value).sum();
-        return new Report(scanRange, total, entries, hearths);
+            scan("World", player.level(), player, player.position(), player.blockPosition(), scanRange, entries);
+            scanHearths("World", player.level(), player.getBoundingBox(), player.position(), player.blockPosition(), hearths);
+
+            SableSublevelContext context = SableSublevelResolver.INSTANCE.resolve(player);
+            if (context != null)
+            {
+                scan("Sable", context.level(), player, context.localPosition(), context.localBlockPos(), scanRange, entries);
+                Vec3 delta = context.localPosition().subtract(player.position());
+                AABB localBox = player.getBoundingBox().move(delta);
+                localBox = localBox.setMaxY(Math.max(localBox.maxY, localBox.minY + 2.0D));
+                scanHearths("Sable", context.level(), localBox, context.localPosition(), context.localBlockPos(), hearths);
+            }
+
+            entries.sort(Comparator.comparingDouble((Entry entry) -> Math.abs(entry.value())).reversed());
+            hearths.sort(Comparator.comparingDouble(HearthEntry::distance));
+            double total = entries.stream().mapToDouble(Entry::value).sum();
+            return new Report(scanRange, total, entries, hearths, null);
+        }
+        catch (RuntimeException exception)
+        {
+            return new Report(AeronauticsHeatSourceBlockTemp.scanRange(), 0.0D, List.of(), List.of(),
+                exception.getClass().getSimpleName() + ": " + String.valueOf(exception.getMessage()));
+        }
     }
 
     private static void scan(String context,
@@ -123,11 +135,55 @@ public final class HeatDiagnostics
                 pos,
                 distance,
                 hearth.isHeatingOn(),
+                hearth.isCoolingOn(),
                 hearth.getHotFuel(),
+                hearth.getColdFuel(),
                 hearth.isUsingHotFuel(),
+                hearth.isUsingColdFuel(),
                 hearth.getHeatingLevel(),
+                hearth.getCoolingLevel(),
                 hearth.getMaxRange(),
-                hearth.isAffectingPos(occupiedPositions(localBox))));
+                hearthAffectsPositions(hearth, occupiedPositions(localBox))));
+        }
+    }
+
+    private static boolean hearthAffectsPositions(HearthBlockEntity hearth, List<BlockPos> positions)
+    {
+        if (tryHearthAreaMethod(hearth, HEARTH_AREA_CONTAINS_POS, positions))
+        {
+            return true;
+        }
+        return tryHearthAreaMethod(hearth, HEARTH_IS_AFFECTING_POS, positions);
+    }
+
+    private static boolean tryHearthAreaMethod(HearthBlockEntity hearth, Method method, List<BlockPos> positions)
+    {
+        if (method == null)
+        {
+            return false;
+        }
+        try
+        {
+            Object result = method.invoke(hearth, positions);
+            return result instanceof Boolean value && value;
+        }
+        catch (ReflectiveOperationException | RuntimeException ignored)
+        {
+            return false;
+        }
+    }
+
+    private static Method findHearthAreaMethod(String name)
+    {
+        try
+        {
+            Method method = HearthBlockEntity.class.getMethod(name, List.class);
+            method.setAccessible(true);
+            return method;
+        }
+        catch (ReflectiveOperationException | RuntimeException ignored)
+        {
+            return null;
         }
     }
 
@@ -162,7 +218,8 @@ public final class HeatDiagnostics
         int scanRange,
         double total,
         List<Entry> entries,
-        List<HearthEntry> hearths)
+        List<HearthEntry> hearths,
+        String error)
     {
     }
 
@@ -181,9 +238,13 @@ public final class HeatDiagnostics
         BlockPos pos,
         double distance,
         boolean heatingOn,
+        boolean coolingOn,
         int hotFuel,
+        int coldFuel,
         boolean usingHotFuel,
+        boolean usingColdFuel,
         int heatingLevel,
+        int coolingLevel,
         int maxRange,
         boolean affectingPlayer)
     {
