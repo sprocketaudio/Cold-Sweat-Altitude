@@ -8,6 +8,7 @@ public record SableSublevelContext(
     Object subLevelHandle,
     Level level,
     Vec3 localPosition,
-    BlockPos localBlockPos)
+    BlockPos localBlockPos,
+    Vec3 worldPosition)
 {
 }

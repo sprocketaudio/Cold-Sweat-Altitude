@@ -8,6 +8,7 @@ import net.minecraft.world.phys.AABB;
 import net.minecraft.world.level.Level;
 import net.minecraft.world.phys.Vec3;
 import net.sprocketgames.coldsweataltitude.ColdSweatAltitude;
+import net.sprocketgames.coldsweataltitude.config.AltitudeConfig;
 import org.joml.Vector3d;
 import org.joml.Vector3dc;
 
@@ -97,11 +98,16 @@ public final class SableSublevelResolver
                 return null;
             }
 
-            return new SableSublevelContext(subLevel, level, plotPosition, BlockPos.containing(plotPosition));
+            Object pose = poseField(subLevel).get(subLevel);
+            Vec3 worldPosition = transformPosition(pose, "transformPosition", plotPosition);
+            return new SableSublevelContext(subLevel, level, plotPosition, BlockPos.containing(plotPosition), worldPosition);
         }
         catch (ReflectiveOperationException | RuntimeException exception)
         {
-            ColdSweatAltitude.LOGGER.debug("Unable to resolve Sable sublevel context.", exception);
+            if (AltitudeConfig.debugLogging())
+            {
+                ColdSweatAltitude.LOGGER.debug("Unable to resolve Sable sublevel context.", exception);
+            }
             return null;
         }
     }

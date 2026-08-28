@@ -8,13 +8,20 @@ import com.momosoftworks.coldsweat.api.util.Temperature;
 import com.momosoftworks.coldsweat.api.util.placement.Matcher;
 import com.momosoftworks.coldsweat.api.util.placement.Placement;
 import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.Level;
 import net.neoforged.bus.api.SubscribeEvent;
 import net.neoforged.neoforge.common.NeoForge;
+import net.neoforged.neoforge.event.tick.PlayerTickEvent;
 import net.sprocketgames.coldsweataltitude.ColdSweatAltitude;
 import net.sprocketgames.coldsweataltitude.compat.blocktemp.AeronauticsHeatSourceBlockTemp;
 import net.sprocketgames.coldsweataltitude.compat.modifier.SableBlockTempModifier;
 import net.sprocketgames.coldsweataltitude.compat.modifier.SableHearthModifier;
+
+import java.util.HashMap;
+import java.util.Map;
+import java.util.UUID;
 
 public final class SableHeatCompat
 {
@@ -35,6 +42,8 @@ public final class SableHeatCompat
 
     private static final class EventHandler
     {
+        private final Map<UUID, Level> playerSublevels = new HashMap<>();
+
         @SubscribeEvent
         public void onTempModifierRegister(TempModifierRegisterEvent event)
         {
@@ -65,6 +74,44 @@ public final class SableHeatCompat
 
             add(event, new SableBlockTempModifier());
             add(event, new SableHearthModifier());
+        }
+
+        @SubscribeEvent
+        public void onPlayerTick(PlayerTickEvent.Post event)
+        {
+            if (!(event.getEntity() instanceof ServerPlayer player) || player.level().isClientSide())
+            {
+                return;
+            }
+
+            SableSublevelContext context = SableSublevelResolver.INSTANCE.resolve(player);
+            Level currentSublevel = context == null ? null : context.level();
+            Level previousSublevel = playerSublevels.get(player.getUUID());
+            if (previousSublevel == currentSublevel)
+            {
+                return;
+            }
+
+            if (currentSublevel == null)
+            {
+                playerSublevels.remove(player.getUUID());
+            }
+            else
+            {
+                playerSublevels.put(player.getUUID(), currentSublevel);
+            }
+
+            // Sable modifiers normally update every 20 ticks.  Refresh them
+            // immediately when a contraption is assembled, disassembled, or
+            // recreated, so the old and new block scanners never leave a
+            // visible temperature gap during the handover.
+            Temperature.forEachModifier(player, Temperature.Trait.WORLD, modifier -> {
+                if (modifier instanceof SableBlockTempModifier || modifier instanceof SableHearthModifier)
+                {
+                    modifier.update(0.0D, player, Temperature.Trait.WORLD);
+                }
+            });
+            Temperature.updateTemperature(player);
         }
 
         private void add(GatherDefaultTempModifiersEvent event, TempModifier modifier)

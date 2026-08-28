@@ -15,7 +15,7 @@ public final class PlayerAltitudeState
     private double shelterEnclosure;
     private double finalModifier;
 
-    public void refresh(AltitudeBand band, int elapsedTicks, double protectionMultiplier, double shelterMultiplier, double shelterEnclosure)
+    public void refresh(AltitudeBand band, double rawModifier, int elapsedTicks, double protectionMultiplier, double shelterMultiplier, double shelterEnclosure)
     {
         String nextBand = band == null ? null : band.id();
         bandChanged = !Objects.equals(activeBand, nextBand);
@@ -25,7 +25,7 @@ public final class PlayerAltitudeState
         this.protectionMultiplier = protectionMultiplier;
         this.shelterMultiplier = shelterMultiplier;
         this.shelterEnclosure = shelterEnclosure;
-        this.finalModifier = band == null ? 0.0D : band.effectiveModifier(protectionMultiplier, shelterMultiplier);
+        this.finalModifier = band == null ? 0.0D : band.effectiveModifier(rawModifier, protectionMultiplier, shelterMultiplier);
 
         if (activeBand == null)
         {

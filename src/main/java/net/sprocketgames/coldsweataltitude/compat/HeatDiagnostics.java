@@ -18,7 +18,9 @@ import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 
 public final class HeatDiagnostics
 {
@@ -50,6 +52,7 @@ public final class HeatDiagnostics
                 scanHearths("Sable", context.level(), localBox, context.localPosition(), context.localBlockPos(), hearths);
             }
 
+            entries = combineMatchingRules(entries);
             entries.sort(Comparator.comparingDouble((Entry entry) -> Math.abs(entry.value())).reversed());
             hearths.sort(Comparator.comparingDouble(HearthEntry::distance));
             double total = entries.stream().mapToDouble(Entry::value).sum();
@@ -101,9 +104,28 @@ public final class HeatDiagnostics
                     pos,
                     distance,
                     value,
-                    blockTemp.getClass().getSimpleName()));
+                    blockTemp.getClass().getSimpleName(),
+                    1));
             }
         }
+    }
+
+    private static List<Entry> combineMatchingRules(List<Entry> entries)
+    {
+        Map<SourceKey, Entry> combined = new LinkedHashMap<>();
+        for (Entry entry : entries)
+        {
+            SourceKey key = new SourceKey(entry.context(), entry.blockId(), entry.pos());
+            Entry previous = combined.get(key);
+            if (previous == null)
+            {
+                combined.put(key, entry);
+                continue;
+            }
+            combined.put(key, new Entry(previous.context(), previous.blockId(), previous.pos(), previous.distance(),
+                previous.value(), previous.source(), previous.matchingRules() + 1));
+        }
+        return new ArrayList<>(combined.values());
     }
 
     private static void scanHearths(String context,
@@ -229,7 +251,12 @@ public final class HeatDiagnostics
         BlockPos pos,
         double distance,
         double value,
-        String source)
+        String source,
+        int matchingRules)
+    {
+    }
+
+    private record SourceKey(String context, ResourceLocation blockId, BlockPos pos)
     {
     }
 

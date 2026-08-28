@@ -1,3 +1,6 @@
+import java.nio.file.Files
+import java.nio.file.attribute.DosFileAttributeView
+
 plugins {
     id 'java-library'
     id 'maven-publish'
@@ -27,6 +30,28 @@ sourceSets.main.resources {
 
 repositories {
     // Add here additional repositories if required by some of the dependencies below.
+}
+
+// Windows can leave files in build/ marked read-only after interrupted IDE or
+// game runs. Clear that attribute before Gradle compiles or cleans outputs.
+tasks.register('clearBuildReadOnly') {
+    doLast {
+        def buildDirectory = layout.buildDirectory.get().asFile
+        if (!buildDirectory.exists()) {
+            return
+        }
+
+        fileTree(buildDirectory).visit { details ->
+            try {
+                def attributes = Files.getFileAttributeView(details.file.toPath(), DosFileAttributeView)
+                if (attributes != null && attributes.readAttributes().isReadOnly()) {
+                    attributes.setReadOnly(false)
+                }
+            } catch (IOException ignored) {
+                logger.debug("Could not clear the read-only attribute from ${details.file}", ignored)
+            }
+        }
+    }
 }
 
 base {
@@ -175,7 +200,12 @@ publishing {
 }
 
 tasks.withType(JavaCompile).configureEach {
+    dependsOn tasks.named('clearBuildReadOnly')
     options.encoding = 'UTF-8' // Use the UTF-8 charset for Java compilation
+}
+
+tasks.named('clean').configure {
+    dependsOn tasks.named('clearBuildReadOnly')
 }
 
 // IDEA no longer automatically downloads sources/javadoc jars for dependencies, so we need to explicitly enable the behavior.

@@ -6,6 +6,7 @@ import net.minecraft.world.phys.Vec3;
 import net.sprocketgames.coldsweataltitude.ColdSweatAltitude;
 import net.sprocketgames.coldsweataltitude.compat.SableSublevelContext;
 import net.sprocketgames.coldsweataltitude.compat.SableSublevelResolver;
+import net.sprocketgames.coldsweataltitude.config.AltitudeConfig;
 
 import java.lang.reflect.Method;
 import java.util.function.Predicate;
@@ -35,11 +36,14 @@ final class SableContraptionShelter
             Object plot = plot(context.subLevelHandle());
             Vec3 plotPosition = context.localPosition().add(0.0D, 1.0D, 0.0D);
             BlockPos origin = BlockPos.containing(plotPosition.x, plotPosition.y, plotPosition.z);
-            return ShelterManager.enclosure(player.level(), origin, radius, plotBounds(plot));
+            return ShelterManager.enclosure(context.level(), origin, radius, plotBounds(plot));
         }
         catch (ReflectiveOperationException | LinkageError | RuntimeException exception)
         {
-            ColdSweatAltitude.LOGGER.debug("Unable to evaluate Sable contraption shelter.", exception);
+            if (AltitudeConfig.debugLogging())
+            {
+                ColdSweatAltitude.LOGGER.debug("Unable to evaluate Sable contraption shelter.", exception);
+            }
             return 0.0D;
         }
     }
@@ -57,12 +61,15 @@ final class SableContraptionShelter
             Object plot = plot(context.subLevelHandle());
             Vec3 plotPosition = context.localPosition().add(0.0D, 1.0D, 0.0D);
             BlockPos origin = BlockPos.containing(plotPosition.x, plotPosition.y, plotPosition.z);
-            double enclosure = ShelterManager.enclosure(player.level(), origin, radius, plotBounds(plot));
+            double enclosure = ShelterManager.enclosure(context.level(), origin, radius, plotBounds(plot));
             return "localOrigin=" + origin.toShortString() + ", enclosure=" + Math.round(enclosure * 100.0D) + "%";
         }
         catch (ReflectiveOperationException | LinkageError | RuntimeException exception)
         {
-            ColdSweatAltitude.LOGGER.debug("Unable to evaluate Sable shelter diagnostics.", exception);
+            if (AltitudeConfig.debugLogging())
+            {
+                ColdSweatAltitude.LOGGER.debug("Unable to evaluate Sable shelter diagnostics.", exception);
+            }
             return "error=" + exception.getClass().getSimpleName();
         }
     }

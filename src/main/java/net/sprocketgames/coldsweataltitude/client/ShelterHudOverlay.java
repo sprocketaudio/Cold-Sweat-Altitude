@@ -45,9 +45,11 @@ public final class ShelterHudOverlay
         int width = minecraft.font.width(label);
         int x = guiGraphics.guiWidth() - width - 8;
         int y = guiGraphics.guiHeight() - 72;
-        int color = shelterColor(percent);
+        float opacity = ShelterHudState.hudOpacity();
+        int color = withAlpha(shelterColor(percent), Math.round(opacity * 255.0F));
+        int backgroundAlpha = Math.round(opacity * 0x99);
 
-        guiGraphics.fill(x - 3, y - 3, x + width + 4, y + 11, 0x99000000);
+        guiGraphics.fill(x - 3, y - 3, x + width + 4, y + 11, backgroundAlpha << 24);
         guiGraphics.drawString(minecraft.font, label, x, y, color, true);
     }
 
@@ -62,5 +64,10 @@ public final class ShelterHudOverlay
             return 0xFFFFD166;
         }
         return 0xFFFF8A5B;
+    }
+
+    private static int withAlpha(int color, int alpha)
+    {
+        return (Math.max(0, Math.min(255, alpha)) << 24) | (color & 0x00FFFFFF);
     }
 }

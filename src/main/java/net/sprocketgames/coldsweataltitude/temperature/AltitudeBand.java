@@ -22,9 +22,8 @@ public record AltitudeBand(
     double temperatureModifier,
     AltitudeBandConfig.ModifierMode modifierMode,
     int priority,
-    String onEnterMessage,
     String actionbarMessage,
-    int messageCooldownTicks,
+    int actionbarDisplayTicks,
     TagKey<Item> protectionTag,
     int requiredPieces,
     double protectionReductionPerPiece,
@@ -65,9 +64,8 @@ public record AltitudeBand(
             config.temperatureModifier(),
             config.modifierMode(),
             config.priority(),
-            config.onEnterMessage(),
             config.actionbarMessage(),
-            config.messageCooldownTicks(),
+            config.actionbarDisplayTicks(),
             protectionTag,
             Math.max(0, config.requiredPieces()),
             Mth.clamp(config.protectionReductionPerPiece(), 0.0D, 1.0D),
@@ -99,13 +97,24 @@ public record AltitudeBand(
         return dimensionMode == AltitudeBandConfig.DimensionMode.WHITELIST ? listed : !listed;
     }
 
-    public double effectiveModifier(double protectionMultiplier, double shelterMultiplier)
+    public double modifierAtY(int y, double nextBandModifier)
+    {
+        if (maxY == null || maxY <= minY)
+        {
+            return temperatureModifier;
+        }
+
+        double progress = Mth.clamp((y - minY) / (double) (maxY - minY), 0.0D, 1.0D);
+        return Mth.lerp(progress, temperatureModifier, nextBandModifier);
+    }
+
+    public double effectiveModifier(double rawModifier, double protectionMultiplier, double shelterMultiplier)
     {
         double exposureMultiplier = protectionMultiplier * shelterMultiplier;
         if (modifierMode == AltitudeBandConfig.ModifierMode.MULTIPLY)
         {
-            return 1.0D + ((temperatureModifier - 1.0D) * exposureMultiplier);
+            return 1.0D + ((rawModifier - 1.0D) * exposureMultiplier);
         }
-        return temperatureModifier * exposureMultiplier;
+        return rawModifier * exposureMultiplier;
     }
 }

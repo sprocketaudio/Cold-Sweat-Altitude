@@ -1,6 +1,7 @@
 package net.sprocketgames.coldsweataltitude.shelter;
 
 import net.minecraft.core.BlockPos;
+import net.minecraft.tags.BlockTags;
 import net.minecraft.server.level.ServerPlayer;
 import net.minecraft.world.level.BlockGetter;
 import net.minecraft.world.level.Level;
@@ -109,6 +110,13 @@ public final class ShelterManager
 
     static double enclosure(BlockGetter level, BlockPos origin, int radius, Predicate<BlockPos> inBounds)
     {
+        // Side walls alone (such as a trench) are not shelter. Require a real
+        // roof before applying the gradual enclosure calculation, then allow
+        // open-sided cabins and ship decks to receive partial shelter.
+        if (!hasClosure(level, origin, radius, 0.0D, 1.0D, 0.0D, inBounds))
+        {
+            return 0.0D;
+        }
         if (isEnclosedVolume(level, origin, radius, inBounds))
         {
             return 1.0D;
@@ -199,6 +207,13 @@ public final class ShelterManager
         }
 
         BlockState state = level.getBlockState(pos);
+        // Tree canopies and small replaceable plants should not count as a
+        // shelter wall or roof. They otherwise give players partial shelter
+        // while standing outdoors below foliage.
+        if (state.is(BlockTags.LEAVES) || state.canBeReplaced())
+        {
+            return false;
+        }
         if (state.getBlock() instanceof DoorBlock)
         {
             return !state.getValue(DoorBlock.OPEN);

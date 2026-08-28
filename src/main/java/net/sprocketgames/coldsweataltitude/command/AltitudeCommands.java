@@ -2,6 +2,7 @@ package net.sprocketgames.coldsweataltitude.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import net.minecraft.ChatFormatting;
 import net.minecraft.commands.CommandSourceStack;
 import net.minecraft.commands.Commands;
 import net.minecraft.network.chat.Component;
@@ -11,7 +12,7 @@ import net.neoforged.neoforge.event.RegisterCommandsEvent;
 import com.momosoftworks.coldsweat.api.util.Temperature;
 import net.sprocketgames.coldsweataltitude.compat.HeatDiagnostics;
 import net.sprocketgames.coldsweataltitude.config.AltitudeConfig;
-import net.sprocketgames.coldsweataltitude.config.AltitudeBandConfig;
+import net.sprocketgames.coldsweataltitude.network.AltitudeNetwork;
 import net.sprocketgames.coldsweataltitude.player.PlayerAltitudeState;
 import net.sprocketgames.coldsweataltitude.shelter.ShelterManager;
 import net.sprocketgames.coldsweataltitude.temperature.AltitudeBand;
@@ -41,19 +42,16 @@ public final class AltitudeCommands
     {
         ServerPlayer player = source.getPlayerOrException();
         AltitudeTemperatureManager manager = AltitudeTemperatureManager.getInstance();
+        AltitudeTemperatureManager.CoordinateDiagnostic coordinates = manager.coordinateDiagnostic(player);
         PlayerAltitudeState state = manager.refreshState(player);
+        AltitudeNetwork.sendShelterStatus(player, state.shelterEnclosure());
         Optional<AltitudeBand> activeBand = manager.findMatchingBand(player);
         HeatDiagnostics.Report heat = HeatDiagnostics.collect(player);
 
         Component bandId = activeBand.map(band -> text(band.id()))
             .orElse(Component.translatable("coldsweat_altitude.value.none"));
-        double rawModifier = activeBand.map(AltitudeBand::temperatureModifier).orElse(0.0D);
-        double modifier = activeBand.map(band -> band.effectiveModifier(state.protectionMultiplier(), state.shelterMultiplier())).orElse(0.0D);
-        Component numericNet = activeBand
-            .map(band -> band.modifierMode() == AltitudeBandConfig.ModifierMode.ADD
-                ? text(formatDouble(modifier + heat.total()))
-                : Component.translatable("coldsweat_altitude.value.not_applicable_multiply"))
-            .orElse(text(formatDouble(heat.total())));
+        double rawModifier = activeBand.map(band -> manager.rawModifier(player, band)).orElse(0.0D);
+        double modifier = activeBand.map(band -> band.effectiveModifier(rawModifier, state.protectionMultiplier(), state.shelterMultiplier())).orElse(0.0D);
         Component worldShelter = activeBand
             .map(band -> text(Math.round(ShelterManager.INSTANCE.worldShelterEnclosure(player, band) * 100.0D) + "%"))
             .orElse(Component.translatable("coldsweat_altitude.value.not_applicable"));
@@ -64,11 +62,14 @@ public final class AltitudeCommands
             .map(band -> text(ShelterManager.INSTANCE.sableDiagnostic(player, band)))
             .orElse(Component.translatable("coldsweat_altitude.value.not_applicable"));
 
-        source.sendSuccess(() -> Component.translatable(
-            "commands.coldsweat_altitude.status.line1",
-            text(player.level().dimension().location()),
-            text(player.getBlockY()),
+        sendStatus(source, ChatFormatting.AQUA, "commands.coldsweat_altitude.status.title.altitude", "commands.coldsweat_altitude.status.altitude",
             bandId,
+            text(player.level().dimension().location()),
+            text(coordinates.playerDisplay()),
+            text(coordinates.sableWorldDisplay()),
+            text(coordinates.sableLocalDisplay()),
+            text(state.ticksInBand()));
+        sendStatus(source, ChatFormatting.GOLD, "commands.coldsweat_altitude.status.title.modifiers", "commands.coldsweat_altitude.status.modifiers",
             text(formatDouble(rawModifier)),
             text(formatDouble(modifier)),
             text(formatDouble(1.0D - state.protectionMultiplier())),
@@ -76,20 +77,15 @@ public final class AltitudeCommands
             text(Math.round(state.shelterEnclosure() * 100.0D)),
             worldShelter,
             sableShelter,
-            sableDiagnostic,
-            text(state.ticksInBand())),
-            false);
-        source.sendSuccess(() -> Component.translatable(
-            "commands.coldsweat_altitude.status.line2",
-            text(heat.scanRange()),
-            text(formatDouble(heat.total())),
-            numericNet,
+            sableDiagnostic);
+        sendStatus(source, ChatFormatting.LIGHT_PURPLE, "commands.coldsweat_altitude.status.title.temperature", "commands.coldsweat_altitude.status.temperature",
             text(formatDouble(Temperature.get(player, Temperature.Trait.WORLD))),
             text(formatDouble(Temperature.get(player, Temperature.Trait.BODY))),
-            text(formatDouble(Temperature.get(player, Temperature.Trait.CORE))),
-            formatHeatSources(heat),
-            formatHearths(heat)),
-            false);
+            text(formatDouble(Temperature.get(player, Temperature.Trait.CORE))));
+        sendStatus(source, ChatFormatting.YELLOW, "commands.coldsweat_altitude.status.title.sources", "commands.coldsweat_altitude.status.sources",
+            formatHeatSources(heat));
+        sendStatus(source, ChatFormatting.RED, "commands.coldsweat_altitude.status.title.hearths", "commands.coldsweat_altitude.status.hearths",
+            formatHearths(heat));
         return Command.SINGLE_SUCCESS;
     }
 
@@ -98,6 +94,13 @@ public final class AltitudeCommands
         int count = AltitudeConfig.reload().size();
         source.sendSuccess(() -> Component.translatable("commands.coldsweat_altitude.reload.success", text(count)), true);
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static void sendStatus(CommandSourceStack source, ChatFormatting accent, String titleKey, String bodyKey, Object... arguments)
+    {
+        source.sendSuccess(() -> Component.translatable(titleKey).withStyle(accent)
+            .append(Component.literal(" | ").withStyle(ChatFormatting.DARK_GRAY))
+            .append(Component.translatable(bodyKey, arguments).withStyle(ChatFormatting.GRAY)), false);
     }
 
     private static int list(CommandSourceStack source)
@@ -138,7 +141,7 @@ public final class AltitudeCommands
                 text(entry.blockId()),
                 text(entry.pos().toShortString()),
                 text(formatDouble(entry.distance())),
-                text(formatDouble(entry.value()))))
+                text(entry.matchingRules())))
             .toList());
     }
 
@@ -194,6 +197,6 @@ public final class AltitudeCommands
 
     private static Component text(Object value)
     {
-        return Component.literal(String.valueOf(value));
+        return Component.literal(String.valueOf(value)).withStyle(ChatFormatting.WHITE);
     }
 }

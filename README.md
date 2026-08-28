@@ -1,28 +1,86 @@
-
 # Cold Sweat: Altitude
 
-Cold Sweat: Altitude is a NeoForge 1.21.1 addon for Cold Sweat focused on configurable altitude-based temperature progression.
+Cold Sweat: Altitude is a configurable addon for [Cold Sweat](https://www.curseforge.com/minecraft/mc-mods/cold-sweat) that adds temperature changes based on altitude.
 
-The goal is simple: let modpacks define temperature bands by Y level so caves, mountains, upper sky layers, and custom dimensions can all behave differently without pack-specific code. The addon is intended to sit on top of Cold Sweat's existing biome, dimension, block, and equipment systems rather than replace them.
+Create warm cave layers, neutral surface conditions, freezing mountain peaks, or dangerous upper atmospheres entirely through config.
 
-The current feature set includes scaled shelter, in-game HUD feedback, and Create: Aeronautics / Sable ship support for both shelter and heat sources.
+Requires Cold Sweat 2.4.1 or newer.
 
-This repository contains the addon implementation:
+## Features
 
-- Required dependency: `cold_sweat` 2.4+
-- Target platform: NeoForge `21.1.181+` on Minecraft `1.21.1`
-
-Gameplay support includes:
-
-- Configurable altitude bands with per-dimension filtering
+- Fully configurable altitude bands with min/max Y ranges
+- Smooth temperature transitions between bands
 - Additive or multiplicative temperature modifiers
-- Optional warning messages layered on top of Cold Sweat
-- Tag-based protection support
-- Scaled shelter reduction
-- Shelter HUD feedback when partial or full shelter is detected
-- Shelter detection support for Create: Aeronautics ships using Sable contraptions
-- Cold Sweat block-temperature support inside Create: Aeronautics ships using Sable contraptions
-- Direct Aeronautics heat-source support for `Hot Air Burner` and `Steam Vent`
-- Configurable Aeronautics burner and steam-vent heat/range tuning in `coldsweat_altitude-server.toml`
-- Cold Sweat hearth support inside ship interiors for packs that use hearth blocks on ships
-- Admin commands for status, reload, and band listing
+- Dimension whitelist and blacklist support
+- Priority-based band resolution
+- Shelter-based reduction of altitude effects
+- Item-tag-based protection for pack makers
+- Coloured action-bar feedback when changing altitude bands
+- Create: Aeronautics / Sable ship shelter and heat-source compatibility
+- Runtime commands for inspection and debugging
+
+## Smooth altitude gradients
+
+Choose how temperature changes between altitude bands:
+
+- `NONE` - temperature changes instantly at each band boundary.
+- `LINEAR` - temperature changes gradually across the whole band.
+- `BOUNDARY` - temperature remains stable through most of the band and transitions smoothly near its edges.
+
+## Action-bar feedback
+
+Entering a new altitude band displays a coloured action-bar message:
+
+- Warm bands tint red
+- Neutral bands remain white
+- Cold bands tint blue
+
+Use `actionbarDisplayTicks` to control how long each message remains visible.
+
+## Create: Aeronautics / Sable support
+
+When Create: Aeronautics and Sable are installed, Cold Sweat: Altitude supports altitude, shelter, and heat sources on assembled ships.
+
+Ship interiors can use shelter protection, while Aeronautics burners and steam vents contribute heat in both normal world spaces and Sable contraptions.
+
+## Configuration
+
+Config location:
+
+`config/coldsweat_altitude-server.toml`
+
+Reload the config while a world is running:
+
+`/coldsweat_altitude reload`
+
+### Basic band example
+
+```
+[[bands]]
+id = "high_mountains"
+enabled = true
+dimensions = ["minecraft:overworld"]
+dimensionMode = "WHITELIST"
+minY = 128
+maxY = 191
+temperatureModifier = -0.08
+modifierMode = "ADD"
+priority = 10
+actionbarMessage = "The mountain air grows colder."
+actionbarDisplayTicks = 100
+enableShelterCheck = true
+shelterCheckRadius = 4
+shelterReduction = 0.35
+```
+
+## Commands
+
+`/coldsweat_altitude status`
+
+Shows the active altitude band, modifiers, shelter value, protection, Sable coordinates, and nearby thermal sources.
+
+`/coldsweat_altitude reload`
+
+Reloads the altitude config without restarting the world.
+
+This addon is not affiliated with or endorsed by Cold Sweat or its authors.
